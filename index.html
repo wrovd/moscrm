@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Склад гидрогелевых плёнок</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Библиотека сканера штрих-/QR-кодов -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+    <style>
+        :root {
+            --bg: #020617;
+            --bg-alt: #020617;
+            --card: #020617;
+            --border: rgba(148,163,184,0.4);
+            --border-soft: rgba(55,65,81,0.9);
+            --accent: #22c55e;
+            --accent-soft: rgba(34,197,94,0.14);
+            --accent-danger: #ef4444;
+            --accent-danger-soft: rgba(248,113,113,0.14);
+            --text: #f9fafb;
+            --muted: #9ca3af;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background:
+                    radial-gradient(circle at 10% -20%, rgba(34,197,94,0.16), transparent 55%),
+                    radial-gradient(circle at 90% -10%, rgba(56,189,248,0.12), transparent 45%),
+                    #020617;
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+        }
+
+        .app {
+            width: 100%;
+            max-width: 480px;
+            padding: 16px;
+        }
+
+        .card {
+            background: radial-gradient(circle at top, rgba(15,23,42,0.9), #020617 55%, #020617 100%);
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            padding: 16px 14px 18px;
+            box-shadow: 0 22px 60px rgba(15,23,42,0.9);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: "";
+            position: absolute;
+            inset: -40%;
+            background:
+                    radial-gradient(circle at 0% 0%, rgba(34,197,94,0.05), transparent 55%),
+                    radial-gradient(circle at 100% 0%, rgba(56,189,248,0.05), transparent 50%);
+            opacity: 0.9;
+            pointer-events: none;
+        }
+
+        .card-inner {
+            position: relative;
+            z-index: 1;
+        }
+
+        header {
+            margin-bottom: 16px;
+        }
+
+        .title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .title {
+            font-size: 21px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(148,163,184,0.6);
+            color: var(--muted);
+            background: rgba(15,23,42,0.8);
+        }
+
+        .subtitle {
+            margin-top: 6px;
+            font-size: 13px;
+            color: var(--muted);
+            line-height: 1.35;
+        }
+
+        .sync-status {
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(55,65,81,0.8);
+            background: rgba(15,23,42,0.92);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--muted);
+        }
+
+        .sync-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: #6b7280;
+            box-shadow: none;
+        }
+
+        .sync-dot.ok {
+            background: var(--accent);
+            box-shadow: 0 0 10px rgba(34,197,94,0.9);
+        }
+
+        .sync-dot.err {
+            background: var(--accent-danger);
+            box-shadow: 0 0 10px rgba(248,113,113,0.9);
+        }
+
+        /* Плашки / тулбары */
+
+        .pill-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            margin-top: 4px;
+        }
+
+        .pill {
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(75,85,99,0.8);
+            background: rgba(15,23,42,0.94);
+            font-size: 11px;
+            color: var(--muted);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pill-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: var(--accent);
+            box-shadow: 0 0 8px rgba(34,197,94,0.8);
+        }
+
+        .btn {
+            border-radius: 999px;
+            border: 1px solid var(--border-soft);
+            padding: 9px 12px;
+            font-size: 13px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background: rgba(15,23,42,0.96);
+            color: var(--text);
+            outline: none;
+            cursor: pointer;
+            touch-action: manipulation;
+            transition: transform 0.08s ease, box-shadow 0.08s ease, border-color 0.08s ease, background 0.08s ease;
+        }
+
+        .btn-primary {
+            border-color: rgba(34,197,94,0.7);
+            background:
+                    radial-gradient(circle at top, rgba(34,197,94,0.18), rgba(15,23,42,0.98));
+            box-shadow: 0 0 0 1px rgba(34,197,94,0.18);
+        }
+
+        .btn-danger {
+            border-color: rgba(248,113,113,0.8);
+            background:
+                    radial-gradient(circle at top, rgba(248,113,113,0.16), rgba(15,23,42,0.98));
+            box-shadow: 0 0 0 1px rgba(248,113,113,0.16);
+        }
+
+        .btn-ghost {
+            font-size: 11px;
+            border-style: dashed;
+            border-color: rgba(75,85,99,0.9);
+            padding: 6px 10px;
+            background: rgba(15,23,42,0.85);
+            color: var(--muted);
+        }
+
+        .btn:active {
+            transform: scale(0.97);
+            box-shadow: none;
+        }
+
+        .toolbar {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 12px;
+            margin-top: 4px;
+        }
+
+        .btn-icon {
+            font-size: 15px;
+            line-height: 1;
+        }
+
+        /* Сканер */
+
+        #scanner-container {
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(55,65,81,0.9);
+            background:
+                    radial-gradient(circle at top, rgba(17,24,39,1), rgba(15,23,42,1));
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        #reader {
+            width: 100%;
+            min-height: 230px;
+        }
+
+        #scanner-overlay {
+            pointer-events: none;
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .scan-frame {
+            width: 70%;
+            max-width: 260px;
+            aspect-ratio: 1 / 1;
+            border-radius: 18px;
+            border: 1px solid rgba(148,163,184,0.4);
+            box-shadow: 0 0 0 1px rgba(15,23,42,0.7), 0 0 30px rgba(0,0,0,0.85);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .scan-frame::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at top, rgba(34,197,94,0.18), transparent 60%);
+            mix-blend-mode: screen;
+        }
+
+        .scan-corner {
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--accent);
+        }
+
+        .scan-corner.tl { left: 8px; top: 8px; border-right: 0; border-bottom: 0; }
+        .scan-corner.tr { right: 8px; top: 8px; border-left: 0; border-bottom: 0; }
+        .scan-corner.bl { left: 8px; bottom: 8px; border-right: 0; border-top: 0; }
+        .scan-corner.br { right: 8px; bottom: 8px; border-left: 0; border-top: 0; }
+
+        .scan-line {
+            position: absolute;
+            left: 10px;
+            right: 10px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            box-shadow: 0 0 14px rgba(34,197,94,0.9);
+            animation: scan 2.4s linear infinite;
+        }
+
+        @keyframes scan {
+            0% { top: 15%; }
+            50% { top: 85%; }
+            100% { top: 15%; }
+        }
+
+        /* Статус */
+
+        #status {
+            font-size: 12px;
+            margin-bottom: 10px;
+            padding: 7px 9px;
+            border-radius: 999px;
+            background: rgba(15,23,42,0.96);
+            border: 1px solid rgba(55,65,81,0.95);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+        }
+
+        #status span {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        #status-mode {
+            font-size: 11px;
+            padding: 2px 9px;
+            border-radius: 999px;
+            background: var(--accent-soft);
+            color: #bbf7d0;
+            border: 1px solid rgba(34,197,94,0.7);
+        }
+
+        #status-text {
+            color: var(--muted);
+        }
+
+        /* Таблица */
+
+        .table-card {
+            margin-top: 12px;
+            border-radius: 16px;
+            border: 1px solid rgba(55,65,81,0.9);
+            background: rgba(15,23,42,0.96);
+            max-height: 280px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .table-header {
+            padding: 9px 10px;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(31,41,55,0.95);
+        }
+
+        .table-header span {
+            color: var(--muted);
+        }
+
+        .tag-small {
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid rgba(55,65,81,0.9);
+            font-size: 10px;
+            color: var(--muted);
+        }
+
+        .table-container {
+            overflow-y: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        thead {
+            position: sticky;
+            top: 0;
+            background: rgba(15,23,42,0.98);
+            backdrop-filter: blur(10px);
+            z-index: 1;
+        }
+
+        th, td {
+            padding: 7px 8px;
+            text-align: left;
+            border-bottom: 1px solid rgba(31,41,55,0.92);
+            white-space: nowrap;
+        }
+
+        th {
+            font-weight: 500;
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        td.name {
+            max-width: 180px;
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+
+        .empty-row {
+            text-align: center;
+            padding: 12px 8px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        /* Toast */
+
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 18px;
+            transform: translateX(-50%);
+            padding: 8px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            border: 1px solid rgba(55,65,81,0.9);
+            background: rgba(15,23,42,0.96);
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.6);
+            z-index: 50;
+            min-width: max-content;
+        }
+
+        .toast-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+        }
+
+        .toast-dot.ok {
+            background: var(--accent);
+            box-shadow: 0 0 10px rgba(34,197,94,0.9);
+        }
+
+        .toast-dot.err {
+            background: var(--accent-danger);
+            box-shadow: 0 0 10px rgba(248,113,113,0.9);
+        }
+
+        @media (max-width: 400px) {
+            .card {
+                padding: 14px 10px 16px;
+                border-radius: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="app">
+    <div class="card">
+        <div class="card-inner">
+            <header>
+                <div class="title-row">
+                    <div>
+                        <div class="title">
+                            📦 Склад плёнок
+                            <span class="badge">мобильный учёт</span>
+                        </div>
+                        <p class="subtitle">
+                            Сканируйте штрихкод камерой, чтобы добавить или списать товар.
+                            Данные хранятся локально в браузере и синхронизируются с Google Таблицей.
+                        </p>
+                    </div>
+                    <div class="sync-status" id="sync-status">
+                        <span class="sync-dot" id="sync-dot"></span>
+                        <span id="sync-text">Google: не проверено</span>
+                    </div>
+                </div>
+            </header>
+
+            <div class="pill-row">
+                <div class="pill">
+                    <span class="pill-dot"></span>
+                    <span>Камера телефона · online / offline</span>
+                </div>
+                <button class="btn btn-ghost" id="btn-toggle-table">👁 Показать базу</button>
+            </div>
+
+            <div class="toolbar">
+                <button class="btn btn-primary" id="btn-scan-add">
+                    <span class="btn-icon">➕</span>
+                    <span>Добавить<br>с камеры</span>
+                </button>
+                <button class="btn btn-danger" id="btn-scan-remove">
+                    <span class="btn-icon">➖</span>
+                    <span>Списать<br>с камеры</span>
+                </button>
+            </div>
+
+            <div id="scanner-container">
+                <div id="reader"></div>
+                <div id="scanner-overlay">
+                    <div class="scan-frame">
+                        <div class="scan-corner tl"></div>
+                        <div class="scan-corner tr"></div>
+                        <div class="scan-corner bl"></div>
+                        <div class="scan-corner br"></div>
+                        <div class="scan-line"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="status">
+                <span>
+                    <span id="status-dot"
+                          style="width:8px;height:8px;border-radius:999px;background:#6b7280;box-shadow:none;"></span>
+                    <span id="status-text">Сканер не активен</span>
+                </span>
+                <span id="status-mode">режим: —</span>
+            </div>
+
+            <div class="table-card" id="table-card" style="display:none;">
+                <div class="table-header">
+                    <span>База товаров</span>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span class="tag-small" id="summary-tag">всего единиц: 0</span>
+                        <button class="btn btn-ghost" id="btn-clear" style="padding:4px 8px;font-size:11px;">
+                            🗑 Очистить
+                        </button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Штрихкод</th>
+                            <th>Наименование</th>
+                            <th>Кол-во</th>
+                        </tr>
+                        </thead>
+                        <tbody id="table-body">
+                        <!-- заполняется скриптом -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // === URL веб-приложения Apps Script ===
+    // !!! ЗДЕСЬ НУЖНО ВСТАВИТЬ ТВОЙ URL из Google Apps Script (Deploy → Web App) !!!
+    const GOOGLE_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyF1w5NPw0qrgb6xYxRsGKooKitNXdqBm7V7fgnJy93_xrivr0hbfaNkkZiTDt_ApVYvg/exec';
+
+    // === Локальная "база" в localStorage ===
+    const STORAGE_KEY = 'hydrogel_inventory';
+
+    function loadInventory() {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [];
+        try {
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            console.error('Ошибка чтения localStorage', e);
+            return [];
+        }
+    }
+
+    function saveInventory(data) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function findItemByBarcode(barcode) {
+        const items = loadInventory();
+        const index = items.findIndex(i => i.barcode === barcode);
+        return {items, index};
+    }
+
+    // === Синхронизация с Google Sheets через Apps Script ===
+
+    const syncDotEl = document.getElementById('sync-dot');
+    const syncTextEl = document.getElementById('sync-text');
+
+    function setSyncStatus(state, msg) {
+        // state: 'idle' | 'ok' | 'error' | 'pending'
+        syncDotEl.classList.remove('ok', 'err');
+        switch (state) {
+            case 'ok':
+                syncDotEl.classList.add('ok');
+                syncTextEl.textContent = msg || 'Google: синхронизация OK';
+                break;
+            case 'error':
+                syncDotEl.classList.add('err');
+                syncTextEl.textContent = msg || 'Google: ошибка';
+                break;
+            case 'pending':
+                syncDotEl.style.background = '#eab308';
+                syncDotEl.style.boxShadow = '0 0 10px rgba(234,179,8,0.9)';
+                syncTextEl.textContent = msg || 'Google: отправка...';
+                break;
+            default:
+                syncDotEl.style.background = '#6b7280';
+                syncDotEl.style.boxShadow = 'none';
+                syncTextEl.textContent = msg || 'Google: не проверено';
+        }
+    }
+
+    async function syncChangeWithGoogle(barcode, name, delta) {
+        // delta: +1 или -1
+        if (!GOOGLE_WEBAPP_URL || GOOGLE_WEBAPP_URL.includes('PASTE_YOUR_URL_HERE')) {
+            // URL не настроен - просто выходим тихо
+            return;
+        }
+
+        // Если нет сети — не мучаем пользователя
+        if (!navigator.onLine) {
+            setSyncStatus('error', 'Google: офлайн');
+            return;
+        }
+
+        setSyncStatus('pending', 'Google: отправка...');
+
+        try {
+            const response = await fetch(GOOGLE_WEBAPP_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'changeQty',
+                    barcode: barcode,
+                    name: name || '',
+                    delta: delta
+                })
+            });
+
+            const data = await response.json();
+            if (data.status !== 'ok') {
+                console.warn('Google sync error:', data);
+                setSyncStatus('error', 'Google: ошибка');
+                showToast('Ошибка синхронизации с Google: ' + (data.message || ''), false);
+            } else {
+                setSyncStatus('ok', 'Google: синхронизировано');
+            }
+        } catch (e) {
+            console.error('Google sync exception', e);
+            setSyncStatus('error', 'Google: нет связи');
+            showToast('Не удалось связаться с Google Таблицей', false);
+        }
+    }
+
+    // === Операции с базой ===
+
+    function addOne(barcode) {
+        const {items, index} = findItemByBarcode(barcode);
+        let nameToSend = '';
+
+        if (index === -1) {
+            const name = prompt(`Товар с штрихкодом ${barcode} не найден.\nВведите наименование товара:`, '');
+            if (!name) {
+                showToast('Наименование не введено, товар не добавлен', false);
+                return;
+            }
+            nameToSend = name.trim();
+            items.push({
+                barcode,
+                name: nameToSend,
+                qty: 1
+            });
+            saveInventory(items);
+            renderTable();
+            showToast(`Добавлен новый товар: +1 (${barcode})`, true);
+
+            // Синхронизация с Google
+            syncChangeWithGoogle(barcode, nameToSend, +1);
+        } else {
+            items[index].qty = (items[index].qty || 0) + 1;
+            saveInventory(items);
+            renderTable();
+            showToast(`Количество увеличено: +1 (${barcode}), всего: ${items[index].qty}`, true);
+
+            // Синхронизация с Google
+            syncChangeWithGoogle(barcode, items[index].name, +1);
+        }
+    }
+
+    function removeOne(barcode) {
+        const {items, index} = findItemByBarcode(barcode);
+        if (index === -1) {
+            showToast(`Товар с штрихкодом ${barcode} не найден в базе`, false);
+            return;
+        }
+        const current = items[index].qty || 0;
+
+        if (current <= 1) {
+            items.splice(index, 1);
+            saveInventory(items);
+            renderTable();
+            showToast(`Товар полностью удалён из базы (${barcode})`, true);
+
+            // Считаем, что было 1, стало 0 => -1
+            syncChangeWithGoogle(barcode, '', -1);
+        } else {
+            items[index].qty = current - 1;
+            saveInventory(items);
+            renderTable();
+            showToast(`Списано: -1 (${barcode}), осталось: ${items[index].qty}`, true);
+
+            syncChangeWithGoogle(barcode, items[index].name, -1);
+        }
+    }
+
+    // === Таблица ===
+
+    function renderTable() {
+        const tbody = document.getElementById('table-body');
+        const items = loadInventory();
+        tbody.innerHTML = '';
+
+        if (items.length === 0) {
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.colSpan = 3;
+            cell.className = 'empty-row';
+            cell.textContent = 'Пока ничего нет. Отсканируйте первый товар.';
+            row.appendChild(cell);
+            tbody.appendChild(row);
+        } else {
+            items.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            items.forEach(item => {
+                const tr = document.createElement('tr');
+
+                const tdBarcode = document.createElement('td');
+                tdBarcode.textContent = item.barcode;
+
+                const tdName = document.createElement('td');
+                tdName.textContent = item.name || '';
+                tdName.className = 'name';
+
+                const tdQty = document.createElement('td');
+                tdQty.textContent = item.qty ?? 0;
+
+                tr.appendChild(tdBarcode);
+                tr.appendChild(tdName);
+                tr.appendChild(tdQty);
+                tbody.appendChild(tr);
+            });
+        }
+
+        const total = items.reduce((sum, i) => sum + (i.qty || 0), 0);
+        document.getElementById('summary-tag').textContent = `всего единиц: ${total}`;
+    }
+
+    // === Toast ===
+
+    let toastTimeout = null;
+
+    function showToast(message, ok = true) {
+        if (toastTimeout) {
+            clearTimeout(toastTimeout);
+            toastTimeout = null;
+        }
+
+        const existing = document.getElementById('toast');
+        if (existing) existing.remove();
+
+        const div = document.createElement('div');
+        div.className = 'toast';
+        div.id = 'toast';
+
+        const dot = document.createElement('div');
+        dot.className = 'toast-dot ' + (ok ? 'ok' : 'err');
+
+        const span = document.createElement('span');
+        span.textContent = message;
+
+        div.appendChild(dot);
+        div.appendChild(span);
+        document.body.appendChild(div);
+
+        toastTimeout = setTimeout(() => {
+            div.remove();
+        }, 3200);
+    }
+
+    // === Камера и сканер ===
+
+    let html5QrCode = null;
+    let currentMode = null; // 'add' | 'remove' | null
+    let isScanning = false;
+    let scanLock = false;  // защита от двойных срабатываний
+
+    const statusTextEl = document.getElementById('status-text');
+    const statusModeEl = document.getElementById('status-mode');
+    const statusDotEl = document.getElementById('status-dot');
+
+    function updateStatus(text, modeText = '—', active = false) {
+        statusTextEl.textContent = text;
+        statusModeEl.textContent = 'режим: ' + modeText;
+        if (active) {
+            statusDotEl.style.background = '#22c55e';
+            statusDotEl.style.boxShadow = '0 0 10px rgba(34,197,94,0.9)';
+        } else {
+            statusDotEl.style.background = '#6b7280';
+            statusDotEl.style.boxShadow = 'none';
+        }
+    }
+
+    async function startScanner(mode) {
+        try {
+            if (!window.Html5Qrcode) {
+                alert('Библиотека сканирования не загрузилась. Проверьте интернет.');
+                return;
+            }
+
+            // Повторное нажатие на ту же кнопку — выключить сканер
+            if (isScanning && currentMode === mode) {
+                await stopScanner();
+                return;
+            }
+
+            // Если сканер работает в другом режиме — останавливаем
+            if (isScanning) {
+                await stopScanner();
+            }
+
+            currentMode = mode;
+
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
+
+            const config = {
+                fps: 12,
+                qrbox: {width: 260, height: 260},
+                formatsToSupport: [
+                    Html5QrcodeSupportedFormats.QR_CODE,
+                    Html5QrcodeSupportedFormats.CODE_128,
+                    Html5QrcodeSupportedFormats.CODE_39,
+                    Html5QrcodeSupportedFormats.EAN_13,
+                    Html5QrcodeSupportedFormats.EAN_8,
+                    Html5QrcodeSupportedFormats.UPC_A,
+                    Html5QrcodeSupportedFormats.UPC_E
+                ]
+            };
+
+            const devices = await Html5Qrcode.getCameras();
+            const cameraId = devices && devices[0] ? devices[0].id : null;
+
+            if (!cameraId) {
+                alert('Камера не найдена или заблокирована браузером.');
+                updateStatus('Камера недоступна', '—', false);
+                return;
+            }
+
+            isScanning = true;
+            scanLock = false;
+
+            updateStatus(
+                mode === 'add'
+                    ? 'Наведите камеру на штрихкод для добавления'
+                    : 'Наведите камеру на штрихкод для списания',
+                mode === 'add' ? 'добавление' : 'списание',
+                true
+            );
+
+            await html5QrCode.start(
+                {deviceId: {exact: cameraId}},
+                config,
+                async (decodedText) => {
+                    if (scanLock) return;
+                    scanLock = true;
+
+                    const value = decodedText.trim();
+                    if (!value) {
+                        scanLock = false;
+                        return;
+                    }
+
+                    const modeAtScan = currentMode; // запоминаем режим на момент сканирования
+
+                    await stopScanner();
+
+                    if (modeAtScan === 'add') {
+                        addOne(value);
+                    } else if (modeAtScan === 'remove') {
+                        removeOne(value);
+                    } else {
+                        showToast('Режим сканирования не выбран', false);
+                    }
+                },
+                (errorMessage) => {
+                    // ошибки/шумы можно игнорировать
+                }
+            );
+
+        } catch (err) {
+            console.error(err);
+            alert('Ошибка запуска камеры: ' + err.message);
+            updateStatus('Ошибка камеры', '—', false);
+            isScanning = false;
+            currentMode = null;
+        }
+    }
+
+    async function stopScanner() {
+        if (html5QrCode && isScanning) {
+            try {
+                await html5QrCode.stop();
+            } catch (e) {
+                console.error('Ошибка остановки сканера', e);
+            }
+        }
+        isScanning = false;
+        updateStatus('Сканер не активен', '—', false);
+    }
+
+    // === Обработчики кнопок ===
+
+    document.getElementById('btn-scan-add').addEventListener('click', () => {
+        startScanner('add');
+    });
+
+    document.getElementById('btn-scan-remove').addEventListener('click', () => {
+        startScanner('remove');
+    });
+
+    document.getElementById('btn-toggle-table').addEventListener('click', () => {
+        const card = document.getElementById('table-card');
+        const visible = card.style.display !== 'none';
+        card.style.display = visible ? 'none' : 'flex';
+        document.getElementById('btn-toggle-table').textContent = visible ? '👁 Показать базу' : '🙈 Скрыть базу';
+    });
+
+    document.getElementById('btn-clear').addEventListener('click', () => {
+        if (confirm('Очистить всю базу товаров на этом устройстве? (Google Таблица не трогается)')) {
+            localStorage.removeItem(STORAGE_KEY);
+            renderTable();
+            showToast('Локальная база очищена', true);
+        }
+    });
+
+    // При закрытии вкладки — остановить камеру
+    window.addEventListener('beforeunload', () => {
+        if (html5QrCode && isScanning) {
+            html5QrCode.stop().catch(() => {});
+        }
+    });
+
+    // Обновление статуса синхронизации при смене сети
+    window.addEventListener('online', () => {
+        setSyncStatus('idle', 'Google: онлайн');
+    });
+
+    window.addEventListener('offline', () => {
+        setSyncStatus('error', 'Google: офлайн');
+    });
+
+    // Первичная отрисовка таблицы
+    renderTable();
+    setSyncStatus('idle', navigator.onLine ? 'Google: онлайн' : 'Google: офлайн');
+</script>
+</body>
+</html>
