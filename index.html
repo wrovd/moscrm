@@ -487,14 +487,14 @@
                 </div>
                 <p class="subtitle">
                     Сканируйте штрихкод задней камерой, чтобы добавить или списать товар.
-                    Все данные хранятся на устройстве (localStorage) и дублируются в Google Таблицу.
+                    Все данные хранятся на устройстве и дублируются в Google Таблицу.
                 </p>
             </header>
 
             <div class="pill-row">
                 <div class="pill">
                     <span class="pill-dot"></span>
-                    <span><span class="pill-strong">Камера:</span> задняя · EAN / UPC / CODE128</span>
+                    <span><span class="pill-strong">Камера:</span> задняя · EAN-13 / EAN-8 / UPC / CODE128</span>
                 </div>
                 <button class="btn btn-ghost" id="btn-toggle-table">👁 Показать базу</button>
             </div>
@@ -570,8 +570,8 @@
 
 <script>
     // === URL веб-приложения Apps Script ===
-    // ЗАМЕНИТЕ СТРОКУ НИЖЕ НА СВОЙ РЕАЛЬНЫЙ URL, заканчивающийся на /exec
-    const GOOGLE_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyF1w5NPw0qrgb6xYxRsGKooKitNXdqBm7V7fgnJy93_xrivr0hbfaNkkZiTDt_ApVYvg/exec';
+    // ОБЯЗАТЕЛЬНО: замени YOUR_WEBAPP_URL_HERE на свой ID (URL должен заканчиваться на /exec)
+    const GOOGLE_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzySJ6JiKKKCjXk_GLvdEG7Cw6yqHMRwWQzCJblPx2Ecd3XDwFOpVLDd9zfd0wcmN0h_Q/exec';
 
     // === Локальная "база" в localStorage ===
     const STORAGE_KEY = 'hydrogel_inventory';
@@ -605,6 +605,7 @@
 
     function setSyncStatus(state, msg) {
         syncDotEl.classList.remove('ok', 'err');
+        syncDotEl.style.background = '#d1d5db';
         switch (state) {
             case 'ok':
                 syncDotEl.classList.add('ok');
@@ -619,13 +620,11 @@
                 syncTextEl.textContent = msg || 'Google: отправка...';
                 break;
             default:
-                syncDotEl.style.background = '#d1d5db';
                 syncTextEl.textContent = msg || 'Google: не проверено';
         }
     }
 
     async function syncChangeWithGoogle(barcode, name, delta) {
-        // delta: +1 или -1
         if (!GOOGLE_WEBAPP_URL || GOOGLE_WEBAPP_URL.includes('YOUR_WEBAPP_URL_HERE')) {
             return; // URL не настроен
         }
@@ -640,7 +639,7 @@
         try {
             await fetch(GOOGLE_WEBAPP_URL, {
                 method: 'POST',
-                mode: 'no-cors', // важно для обхода CORS
+                mode: 'no-cors', // чтобы не мешал CORS
                 headers: {
                     'Content-Type': 'application/json'
                 },
@@ -652,7 +651,6 @@
                 })
             });
 
-            // Ответ при no-cors "нечитаем", но запрос ушёл
             setSyncStatus('ok', 'Google: отправлено');
         } catch (e) {
             console.error('Google sync exception', e);
@@ -792,7 +790,7 @@
         }, 3200);
     }
 
-    // === Камера и сканер ===
+    // === Камера и сканер (адаптирован под EAN-13) ===
 
     let html5QrCode = null;
     let currentMode = null; // 'add' | 'remove'
@@ -816,11 +814,13 @@
                 return;
             }
 
+            // Повторное нажатие на ту же кнопку — выключить сканер
             if (isScanning && currentMode === mode) {
                 await stopScanner();
                 return;
             }
 
+            // Если сканер уже работал в другом режиме — остановим
             if (isScanning) {
                 await stopScanner();
             }
@@ -831,20 +831,25 @@
                 html5QrCode = new Html5Qrcode("reader");
             }
 
+            // Конфиг специально под 1D-коды: EAN-13 и др.
             const config = {
                 fps: 10,
-                qrbox: { width: 320, height: 120 },
+                qrbox: { width: 340, height: 160 }, // широкое окно под длинный штрихкод
                 aspectRatio: 1.7777778,
                 formatsToSupport: [
-                    Html5QrcodeSupportedFormats.CODE_128,
-                    Html5QrcodeSupportedFormats.CODE_39,
                     Html5QrcodeSupportedFormats.EAN_13,
                     Html5QrcodeSupportedFormats.EAN_8,
                     Html5QrcodeSupportedFormats.UPC_A,
-                    Html5QrcodeSupportedFormats.UPC_E
-                ]
+                    Html5QrcodeSupportedFormats.UPC_E,
+                    Html5QrcodeSupportedFormats.CODE_128,
+                    Html5QrcodeSupportedFormats.CODE_39
+                ],
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true
+                }
             };
 
+            // Стараемся выбрать заднюю камеру
             let cameraConfig = { facingMode: { exact: "environment" } };
 
             let devices = [];
@@ -862,6 +867,7 @@
                 if (backCam) {
                     cameraConfig = { deviceId: { exact: backCam.id } };
                 } else {
+                    // на iOS задняя часто последняя
                     cameraConfig = { deviceId: { exact: devices[devices.length - 1].id } };
                 }
             }
@@ -871,7 +877,7 @@
 
             updateStatus(
                 mode === 'add'
-                    ? 'Наведите заднюю камеру на штрихкод для добавления'
+                    ? 'Наведите заднюю камеру, чтобы полоски штрихкода были горизонтально в рамке'
                     : 'Наведите заднюю камеру на штрихкод для списания',
                 mode === 'add' ? 'добавление' : 'списание',
                 true
@@ -890,8 +896,9 @@
                         return;
                     }
 
-                    const modeAtScan = currentMode;
+                    console.log('Считан штрихкод:', value);
 
+                    const modeAtScan = currentMode;
                     await stopScanner();
 
                     if (modeAtScan === 'add') {
@@ -903,7 +910,7 @@
                     }
                 },
                 (errorMessage) => {
-                    // шумы игнорируем
+                    // сюда летят шумы, можно игнорировать
                 }
             );
 
@@ -967,7 +974,7 @@
         setSyncStatus('error', 'Google: офлайн');
     });
 
-    // Первичная отрисовка
+    // Стартовая отрисовка
     renderTable();
     setSyncStatus('idle', navigator.onLine ? 'Google: онлайн' : 'Google: офлайн');
 </script>
