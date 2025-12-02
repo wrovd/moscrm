@@ -343,9 +343,9 @@
     let currentItem = null;
     let searchTimeout = null;
     let scannerActive = false;
-    let codeReader = null;
+    let codeReader = null;  // <= объявляем ОДИН раз
 
-    // ---- Поиск по верхнему полю (action=search, часть штрихкода) ----
+    /* ===== Поиск по верхнему полю (action=search, часть штрихкода) ===== */
     barcodeInput.addEventListener('input', () => {
       const q = barcodeInput.value.trim();
       if (searchTimeout) clearTimeout(searchTimeout);
@@ -408,7 +408,7 @@
       selQty.textContent = newQty;
     }
 
-    // ---- Быстрое списание снизу ----
+    /* ===== Быстрое списание снизу ===== */
     deleteOneBtn.addEventListener('click', () => {
       if (!currentItem) return;
       doDelete(currentItem.barcode, 1);
@@ -429,7 +429,7 @@
         .then(r => r.json())
         .then(data => {
           if (data.error) {
-            deleteStatus.textContent = 'Ошибка: ' + data.message || data.error;
+            deleteStatus.textContent = 'Ошибка: ' + (data.message || data.error);
             deleteStatus.className = 'status error';
           } else {
             deleteStatus.textContent = `Списано ${qty} шт. Новое количество: ${data.newQty}`;
@@ -444,7 +444,7 @@
         });
     }
 
-    // ---- Кнопка "Проверить / сохранить" (action=get) ----
+    /* ===== Кнопка "Проверить / сохранить" (action=get) ===== */
     addBtn.addEventListener('click', () => {
       const barcode = addBarcode.value.trim();
       const name    = addName.value.trim();
@@ -467,7 +467,6 @@
         .then(r => r.json())
         .then(data => {
           if (data.error && data.error !== 'GET_ERROR' && data.error !== 'BAD_REQUEST') {
-            // системная ошибка с бэка
             addStatus.textContent = 'Ошибка сервера: ' + (data.message || data.error);
             addStatus.className = 'status error';
             return;
@@ -533,7 +532,7 @@
         });
     }
 
-    // ---- Модалка +1 / -1 ----
+    /* ===== Модалка +1 / -1 ===== */
     let modalCurrentItem = null;
 
     function showExistingModal(item) {
@@ -593,9 +592,7 @@
       }
     });
 
-    // ---- Сканер на ZXing ----
-    let codeReader = null;
-
+    /* ===== Сканер на ZXing ===== */
     toggleScannerBtn.addEventListener('click', () => {
       if (scannerActive) {
         stopScanner();
@@ -631,6 +628,7 @@
 
               searchItems(code);
             }
+            // err (NotFoundException и т.п.) ZXing кидает постоянно – игнорируем
           }
         )
         .then(() => {
