@@ -12,18 +12,8 @@
       background: #f5f5f5;
       color: #222;
     }
-
-    .container {
-      max-width: 480px;
-      margin: 0 auto;
-      padding: 16px;
-    }
-
-    h1 {
-      font-size: 20px;
-      text-align: center;
-      margin-bottom: 12px;
-    }
+    .container { max-width: 480px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 20px; text-align: center; margin-bottom: 12px; }
 
     .card {
       background: #ffffff;
@@ -33,12 +23,7 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
 
-    label {
-      display: block;
-      font-size: 13px;
-      margin-bottom: 4px;
-      color: #555;
-    }
+    label { display: block; font-size: 13px; margin-bottom: 4px; color: #555; }
 
     input, button {
       width: 100%;
@@ -49,9 +34,7 @@
       border: 1px solid #ccc;
     }
 
-    input {
-      background: #fafafa;
-    }
+    input { background: #fafafa; }
 
     button {
       margin-top: 8px;
@@ -60,32 +43,12 @@
       cursor: pointer;
     }
 
-    .btn-primary {
-      background: #007bff;
-      color: #fff;
-    }
+    .btn-primary { background: #007bff; color: #fff; }
+    .btn-danger  { background: #dc3545; color: #fff; }
+    .btn-secondary { background: #e0e0e0; color: #333; }
+    .btn-outline { background: #fff; border: 1px solid #007bff; color: #007bff; }
 
-    .btn-danger {
-      background: #dc3545;
-      color: #fff;
-    }
-
-    .btn-secondary {
-      background: #e0e0e0;
-      color: #333;
-    }
-
-    .btn-outline {
-      background: #fff;
-      border: 1px solid #007bff;
-      color: #007bff;
-    }
-
-    .small-text {
-      font-size: 12px;
-      color: #777;
-      margin-top: 4px;
-    }
+    .small-text { font-size: 12px; color: #777; margin-top: 4px; }
 
     .suggestions {
       margin-top: 6px;
@@ -101,58 +64,22 @@
       border-bottom: 1px solid #f0f0f0;
       font-size: 13px;
     }
+    .suggestion-item:last-child { border-bottom: none; }
+    .suggestion-item strong { display: block; font-size: 14px; }
+    .suggestion-item span { color: #666; }
+    .suggestion-item:active { background: #f1f1f1; }
 
-    .suggestion-item:last-child {
-      border-bottom: none;
-    }
+    .selected { font-size: 14px; line-height: 1.4; }
 
-    .suggestion-item strong {
-      display: block;
-      font-size: 14px;
-    }
+    .row { display: flex; gap: 8px; margin-top: 8px; }
+    .row > div { flex: 1; }
 
-    .suggestion-item span {
-      color: #666;
-    }
-
-    .suggestion-item:active {
-      background: #f1f1f1;
-    }
-
-    .selected {
-      font-size: 14px;
-      line-height: 1.4;
-    }
-
-    .row {
-      display: flex;
-      gap: 8px;
-      margin-top: 8px;
-    }
-
-    .row > div {
-      flex: 1;
-    }
-
-    .status {
-      font-size: 13px;
-      margin-top: 6px;
-      min-height: 18px;
-    }
-
-    .status.ok {
-      color: #2e7d32;
-    }
-
-    .status.error {
-      color: #c62828;
-    }
+    .status { font-size: 13px; margin-top: 6px; min-height: 18px; }
+    .status.ok { color: #2e7d32; }
+    .status.error { color: #c62828; }
 
     /* Сканер */
-    #scannerCard {
-      padding: 10px 12px;
-    }
-
+    #scannerCard { padding: 10px 12px; }
     #scannerContainer {
       position: relative;
       width: 100%;
@@ -162,12 +89,7 @@
       overflow: hidden;
       margin-top: 8px;
     }
-
-    #video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
+    #video { width: 100%; height: 100%; object-fit: cover; }
 
     .scanner-overlay-line {
       position: absolute;
@@ -202,7 +124,6 @@
       align-items: center;
       justify-content: center;
     }
-
     .modal-content {
       background: #fff;
       border-radius: 16px;
@@ -211,22 +132,9 @@
       width: 90%;
       box-shadow: 0 4px 16px rgba(0,0,0,0.25);
     }
-
-    .modal-text {
-      font-size: 14px;
-      margin-bottom: 12px;
-      white-space: pre-line;
-    }
-
-    .modal-buttons {
-      display: flex;
-      gap: 8px;
-      margin-top: 4px;
-    }
-
-    .modal-buttons button {
-      flex: 1;
-    }
+    .modal-text { font-size: 14px; margin-bottom: 12px; white-space: pre-line; }
+    .modal-buttons { display: flex; gap: 8px; margin-top: 4px; }
+    .modal-buttons button { flex: 1; }
   </style>
 </head>
 <body>
@@ -261,9 +169,7 @@
       </div>
 
       <div class="row">
-        <div>
-          <button id="deleteOneBtn" class="btn-danger">Списать 1 шт.</button>
-        </div>
+        <div><button id="deleteOneBtn" class="btn-danger">Списать 1 шт.</button></div>
         <div>
           <input id="deleteQty" type="number" min="1" value="1" />
           <button id="deleteManyBtn" class="btn-secondary">Списать N шт.</button>
@@ -309,8 +215,8 @@
   <!-- ZXing -->
   <script src="https://unpkg.com/@zxing/library@latest"></script>
   <script>
-    // ВСТАВЬ СВОЙ URL
-    const API_URL = 'https://script.google.com/macros/s/AKfycbzwUN85DGIeNFOCBmDgaypJ8lOeczU2beWHsU8WyyP9Adt-3Sx5hFO9cmRL6M6dz1p6JA/exec';
+    // ВСТАВЬ СЮДА СВОЙ URL ИЗ APPS SCRIPT
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxFg1Twdbou5SYZT5TA3FAlDTWM2Zftkb5vj9Sl2RpstUe4zv69HzYWIcJ5WMN5ouEv8Q/exec';
 
     const barcodeInput   = document.getElementById('barcodeInput');
     const suggestionsEl  = document.getElementById('suggestions');
@@ -378,9 +284,7 @@
               <strong>${item.name}</strong>
               <span>ШК: ${item.barcode} • Остаток: ${item.quantity}</span>
             `;
-            div.addEventListener('click', () => {
-              selectItem(item);
-            });
+            div.addEventListener('click', () => selectItem(item));
             suggestionsEl.appendChild(div);
           });
           suggestionsEl.style.display = 'block';
@@ -444,12 +348,7 @@
         });
     }
 
-    /* === Кнопка "Проверить / сохранить" ===
-       Логика:
-       1) action=list&query=barcode → ищем ТОЛЬКО по этому штрихкоду
-       2) если находим точное совпадение → попап +1 / -1
-       3) если не находим ИЛИ ошибка запроса → добавление товара
-    */
+    /* === Кнопка "Проверить / сохранить" === */
     addBtn.addEventListener('click', () => {
       const barcode = addBarcode.value.trim();
       const name    = addName.value.trim();
@@ -475,18 +374,18 @@
           const exact = items.find(i => String(i.barcode) === barcode);
 
           if (exact) {
-            // нашли → попап +1 / -1
+            // Нашли точное совпадение по колонке A → попап +1/-1
             addStatus.textContent = '';
             selectItem(exact);
             showExistingModal(exact);
           } else {
-            // не нашли → добавление
+            // Нет в базе → пытаемся добавить
             handleAddNew(barcode, name, qty);
           }
         })
         .catch(err => {
           console.error('check barcode error:', err);
-          // Вместо красной ошибки — просто вариант "добавить"
+          // На всякий случай: если проверка не удалась, даём возможность всё равно добавить
           handleAddNew(barcode, name, qty, true);
         });
     });
@@ -495,7 +394,7 @@
       addStatus.textContent = '';
       if (!name || qty <= 0) {
         addHint.textContent = fromError
-          ? 'Не получилось проверить в базе. Если уверены, введите название и количество и нажмите кнопку ещё раз, чтобы добавить товар.'
+          ? 'Не получилось проверить в базе. Введите название и количество и нажмите кнопку ещё раз, чтобы добавить товар.'
           : 'Такого штрихкода нет в базе. Введите название и количество и нажмите кнопку ещё раз, чтобы добавить товар.';
         return;
       }
@@ -551,9 +450,7 @@
       modalCurrentItem = null;
     }
 
-    modalCancel.addEventListener('click', () => {
-      closeExistingModal();
-    });
+    modalCancel.addEventListener('click', () => closeExistingModal());
 
     modalAdd1.addEventListener('click', () => {
       if (!modalCurrentItem) return;
