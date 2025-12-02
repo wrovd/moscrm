@@ -216,7 +216,7 @@
   <script src="https://unpkg.com/@zxing/library@latest"></script>
   <script>
     // ВСТАВЬ СЮДА СВОЙ URL ИЗ APPS SCRIPT
-    const API_URL = 'https://script.google.com/macros/s/AKfycbxFg1Twdbou5SYZT5TA3FAlDTWM2Zftkb5vj9Sl2RpstUe4zv69HzYWIcJ5WMN5ouEv8Q/exec';
+    const API_URL = 'https://script.google.com/macros/s/AKfycbyo6uual9eT8NbBZFPFPyj8k6lpCuW2n95qMZQx_L4VV4i5AHlT7z8vb6VsvY1TPDRYvA/exec';
 
     const barcodeInput   = document.getElementById('barcodeInput');
     const suggestionsEl  = document.getElementById('suggestions');
@@ -251,7 +251,49 @@
     let scannerActive = false;
     let codeReader = null;
 
-    /* === Поиск по верхнему полю (часть штрихкода, action=list) === */
+    /* ===== JSONP-обёртка ===== */
+    function jsonpCall(params) {
+      return new Promise((resolve, reject) => {
+        const callbackName = 'jsonp_cb_' + Date.now() + '_' + Math.random().toString(16).slice(2);
+
+        params = Object.assign({}, params, { callback: callbackName });
+
+        const query = Object.keys(params)
+          .map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k]))
+          .join('&');
+
+        const script = document.createElement('script');
+        script.src = API_URL + '?' + query;
+        script.async = true;
+
+        let timeout = setTimeout(() => {
+          cleanup();
+          reject(new Error('JSONP timeout'));
+        }, 10000);
+
+        function cleanup() {
+          if (script.parentNode) {
+            script.parentNode.removeChild(script);
+          }
+          clearTimeout(timeout);
+          delete window[callbackName];
+        }
+
+        window[callbackName] = (data) => {
+          cleanup();
+          resolve(data);
+        };
+
+        script.onerror = () => {
+          cleanup();
+          reject(new Error('JSONP script error'));
+        };
+
+        document.body.appendChild(script);
+      });
+    }
+
+    /* ===== Поиск по верхнему полю (часть штрихкода) ===== */
     barcodeInput.addEventListener('input', () => {
       const q = barcodeInput.value.trim();
       if (searchTimeout) clearTimeout(searchTimeout);
@@ -266,8 +308,7 @@
     });
 
     function searchItems(query) {
-      fetch(API_URL + '?action=list&query=' + encodeURIComponent(query))
-        .then(r => r.json())
+      jsonpCall({ action: 'list', query })
         .then(data => {
           const items = data.items || [];
           if (!items.length) {
@@ -312,7 +353,7 @@
       selQty.textContent = newQty;
     }
 
-    /* === Списание снизу === */
+    /* ===== Списание снизу ===== */
     deleteOneBtn.addEventListener('click', () => {
       if (!currentItem) return;
       doDelete(currentItem.barcode, 1);
@@ -329,8 +370,7 @@
       deleteStatus.textContent = `Списываем ${qty} шт...`;
       deleteStatus.className = 'status';
 
-      fetch(API_URL + '?action=delete&barcode=' + encodeURIComponent(barcode) + '&quantity=' + qty)
-        .then(r => r.json())
+      jsonpCall({ action: 'delete', barcode, quantity: qty })
         .then(data => {
           if (data.error) {
             deleteStatus.textContent = 'Ошибка: ' + (data.message || data.error);
@@ -348,7 +388,7 @@
         });
     }
 
-    /* === Кнопка "Проверить / сохранить" === */
+    /* ===== Кнопка "Проверить / сохранить" ===== */
     addBtn.addEventListener('click', () => {
       const barcode = addBarcode.value.trim();
       const name    = addName.value.trim();
@@ -367,25 +407,21 @@
       addStatus.textContent = 'Проверяем штрихкод в базе...';
       addStatus.className = 'status';
 
-      fetch(API_URL + '?action=list&query=' + encodeURIComponent(barcode))
-        .then(r => r.json())
+      jsonpCall({ action: 'list', query: barcode })
         .then(data => {
           const items = Array.isArray(data.items) ? data.items : [];
           const exact = items.find(i => String(i.barcode) === barcode);
 
           if (exact) {
-            // Нашли точное совпадение по колонке A → попап +1/-1
             addStatus.textContent = '';
             selectItem(exact);
             showExistingModal(exact);
           } else {
-            // Нет в базе → пытаемся добавить
             handleAddNew(barcode, name, qty);
           }
         })
         .catch(err => {
           console.error('check barcode error:', err);
-          // На всякий случай: если проверка не удалась, даём возможность всё равно добавить
           handleAddNew(barcode, name, qty, true);
         });
     });
@@ -407,14 +443,7 @@
       addStatus.textContent = 'Сохраняем...';
       addStatus.className = 'status';
 
-      const url = API_URL
-        + '?action=add'
-        + '&barcode=' + encodeURIComponent(barcode)
-        + '&name='    + encodeURIComponent(name)
-        + '&quantity=' + qty;
-
-      fetch(url)
-        .then(r => r.json())
+      jsonpCall({ action: 'add', barcode, name, quantity: qty })
         .then(data => {
           if (data.error) {
             addStatus.textContent = 'Ошибка: ' + (data.message || data.error);
@@ -435,7 +464,7 @@
         });
     }
 
-    /* === Модалка +1 / -1 === */
+    /* ===== Модалка +1 / -1 ===== */
     let modalCurrentItem = null;
 
     function showExistingModal(item) {
@@ -466,8 +495,7 @@
       deleteStatus.textContent = 'Списываем 1 шт...';
       deleteStatus.className = 'status';
 
-      fetch(API_URL + '?action=delete&barcode=' + encodeURIComponent(modalCurrentItem.barcode) + '&quantity=1')
-        .then(r => r.json())
+      jsonpCall({ action: 'delete', barcode: modalCurrentItem.barcode, quantity: 1 })
         .then(data => {
           if (data.error) {
             deleteStatus.textContent = 'Ошибка: ' + (data.message || data.error);
@@ -493,7 +521,7 @@
       }
     });
 
-    /* === Сканер ZXing === */
+    /* ===== Сканер ZXing ===== */
     toggleScannerBtn.addEventListener('click', () => {
       if (scannerActive) {
         stopScanner();
