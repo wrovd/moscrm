@@ -191,6 +191,41 @@
       padding: 4px 8px;
       border-radius: 8px;
     }
+
+    /* Модальное окно для уже существующего штрихкода */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background: #fff;
+      border-radius: 16px;
+      padding: 16px;
+      max-width: 320px;
+      width: 90%;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    }
+
+    .modal-text {
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .modal-buttons button {
+      flex: 1;
+    }
   </style>
 </head>
 <body>
@@ -210,7 +245,6 @@
     <div class="card" id="scannerCard" style="display:none;">
       <div class="small-text">Наведи камеру на штрихкод. После успешного сканирования сканер сам остановится.</div>
       <div id="scannerContainer">
-        <!-- Видео вставит Quagga -->
         <div class="scanner-overlay-line"></div>
         <div class="scanner-hint">Наведи штрихкод в линию</div>
       </div>
@@ -252,8 +286,21 @@
         </div>
       </div>
 
-      <button id="addBtn" class="btn-primary">Добавить / увеличить количество</button>
+      <button id="addBtn" class="btn-primary">Проверить / сохранить</button>
+      <div class="small-text" id="addHint"></div>
       <div class="status" id="addStatus"></div>
+    </div>
+  </div>
+
+  <!-- Модалка для уже существующего штрихкода -->
+  <div class="modal" id="existingModal">
+    <div class="modal-content">
+      <div class="modal-text" id="existingText"></div>
+      <div class="modal-buttons">
+        <button id="modalAdd1" class="btn-primary">+1</button>
+        <button id="modalDel1" class="btn-danger">-1</button>
+      </div>
+      <button id="modalCancel" class="btn-secondary" style="margin-top:8px;">Отмена</button>
     </div>
   </div>
 
@@ -280,16 +327,27 @@
     const addQty         = document.getElementById('addQty');
     const addBtn         = document.getElementById('addBtn');
     const addStatus      = document.getElementById('addStatus');
+    const addHint        = document.getElementById('addHint');
 
     const toggleScannerBtn = document.getElementById('toggleScannerBtn');
     const scannerCard      = document.getElementById('scannerCard');
     const scannerContainer = document.getElementById('scannerContainer');
 
+    const existingModal = document.getElementById('existingModal');
+    const existingText  = document.getElementById('existingText');
+    const modalAdd1     = document.getElementById('modalAdd1');
+    const modalDel1     = document.getElementById('modalDel1');
+    const modalCancel   = document.getElementById('modalCancel');
+
     let currentItem = null;
     let searchTimeout = null;
     let scannerActive = false;
 
-    // ---- Поиск по вводу ----
+    // флаг для нового штрихкода
+    let lastCheckedBarcode = null;
+    let lastCheckedExists = null;
+
+    // ---- Поиск по вводу (верхний инпут) ----
     barcodeInput.addEventListener('input', () => {
       const q = barcodeInput.value.trim();
       if (searchTimeout) clearTimeout(searchTimeout);
@@ -311,7 +369,6 @@
           if (!items.length) {
             suggestionsEl.style.display = 'none';
             suggestionsEl.innerHTML = '';
-            // выбранную не скрываем, чтобы видеть последнюю позицию
             return;
           }
 
@@ -389,18 +446,70 @@
         });
     }
 
-    // ---- Добавление / пополнение ----
+    // ---- Добавление / пополнение с логикой проверки ----
     addBtn.addEventListener('click', () => {
       const barcode = addBarcode.value.trim();
       const name    = addName.value.trim();
       const qty     = Number(addQty.value || 1);
 
-      if (!barcode || !name || qty <= 0) {
-        addStatus.textContent = 'Заполните штрихкод, название и количество';
+      addStatus.textContent = '';
+      addStatus.className = 'status';
+
+      if (!barcode) {
+        addStatus.textContent = 'Введите штрихкод';
         addStatus.className = 'status error';
         return;
       }
 
+      // Если ранее уже проверяли этот штрихкод и он НЕ существует в базе —
+      // вторая нажатие = реальное сохранение нового товара.
+      if (lastCheckedBarcode === barcode && lastCheckedExists === false) {
+        if (!name || qty <= 0) {
+          addStatus.textContent = 'Введите название и количество для нового товара';
+          addStatus.className = 'status error';
+          return;
+        }
+        doAdd(barcode, name, qty, () => {
+          addHint.textContent = '';
+          lastCheckedBarcode = null;
+          lastCheckedExists  = null;
+        });
+        return;
+      }
+
+      // Шаг 1: проверяем, есть ли такой штрихкод в базе
+      addStatus.textContent = 'Проверяем штрихкод...';
+      addStatus.className = 'status';
+
+      fetch(API_URL + '?action=list&query=' + encodeURIComponent(barcode))
+        .then(r => r.json())
+        .then(data => {
+          const items = data.items || [];
+          const exact = items.find(i => String(i.barcode) === barcode);
+
+          if (exact) {
+            // Есть такой товар → показываем popup +1 / -1
+            lastCheckedBarcode = barcode;
+            lastCheckedExists  = true;
+            showExistingModal(exact);
+            addStatus.textContent = '';
+            addHint.textContent = '';
+          } else {
+            // Нет такого товара → просим ввести имя и количество
+            lastCheckedBarcode = barcode;
+            lastCheckedExists  = false;
+            addHint.textContent = 'Такого штрихкода нет в базе. Введите название и количество и нажмите кнопку ещё раз.';
+            addStatus.textContent = '';
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          addStatus.textContent = 'Ошибка при проверке штрихкода';
+          addStatus.className = 'status error';
+        });
+    });
+
+    function doAdd(barcode, name, qty, onDone) {
       addStatus.textContent = 'Сохраняем...';
       addStatus.className = 'status';
 
@@ -417,12 +526,15 @@
             addStatus.textContent = 'Ошибка: ' + data.error;
             addStatus.className = 'status error';
           } else {
-            addStatus.textContent = 'Успешно добавлено / обновлено';
+            addStatus.textContent = 'Успешно сохранено';
             addStatus.className = 'status ok';
+
             // Обновим выбранную позицию, если та же
             if (currentItem && currentItem.barcode === barcode) {
               searchItems(barcode);
             }
+
+            if (typeof onDone === 'function') onDone();
           }
         })
         .catch(err => {
@@ -430,6 +542,69 @@
           addStatus.textContent = 'Ошибка при сохранении';
           addStatus.className = 'status error';
         });
+    }
+
+    // ---- Модалка для уже существующего штрихкода ----
+    let modalCurrentItem = null;
+
+    function showExistingModal(item) {
+      modalCurrentItem = item;
+      existingText.textContent = `В базе ${item.quantity} шт. товара:\n«${item.name}».\nЧто вы хотите сделать?`;
+      existingModal.style.display = 'flex';
+    }
+
+    function closeExistingModal() {
+      existingModal.style.display = 'none';
+      modalCurrentItem = null;
+    }
+
+    modalCancel.addEventListener('click', () => {
+      closeExistingModal();
+    });
+
+    // +1
+    modalAdd1.addEventListener('click', () => {
+      if (!modalCurrentItem) return;
+      doAdd(modalCurrentItem.barcode, modalCurrentItem.name, 1, () => {
+        closeExistingModal();
+        // подгружаем обновлённые данные
+        searchItems(modalCurrentItem.barcode);
+      });
+    });
+
+    // -1
+    modalDel1.addEventListener('click', () => {
+      if (!modalCurrentItem) return;
+
+      deleteStatus.textContent = 'Списываем 1 шт...';
+      deleteStatus.className = 'status';
+
+      fetch(API_URL + '?action=delete&barcode=' + encodeURIComponent(modalCurrentItem.barcode) + '&quantity=1')
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) {
+            deleteStatus.textContent = 'Ошибка: ' + data.error;
+            deleteStatus.className = 'status error';
+          } else {
+            deleteStatus.textContent = `Списано 1 шт. Новое количество: ${data.newQty}`;
+            deleteStatus.className = 'status ok';
+            updateSelectedQty(data.newQty);
+          }
+          closeExistingModal();
+        })
+        .catch(err => {
+          console.error(err);
+          deleteStatus.textContent = 'Ошибка при списании';
+          deleteStatus.className = 'status error';
+          closeExistingModal();
+        });
+    });
+
+    // клик по фону закрывает модалку
+    existingModal.addEventListener('click', (e) => {
+      if (e.target === existingModal) {
+        closeExistingModal();
+      }
     });
 
     // ---- Сканер штрихкодов (QuaggaJS) ----
@@ -498,10 +673,17 @@
       // Немного страхуемся от ложных срабатываний
       stopScanner();
 
-      // Записываем в поле, ищем и выбираем
       barcodeInput.value = code;
       addBarcode.value   = code;
+
+      // сразу ищем и вверху, и в логике добавления
       searchItems(code);
+
+      // сбрасываем подсказку для добавления
+      lastCheckedBarcode = null;
+      lastCheckedExists  = null;
+      addHint.textContent = '';
+      addStatus.textContent = '';
     }
   </script>
 </body>
