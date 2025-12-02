@@ -345,11 +345,7 @@
     let scannerActive = false;
     let codeReader = null;
 
-    // флаги проверки штрихкода
-    let lastCheckedBarcode = null;
-    let lastCheckedExists = null;
-
-    // ---- Поиск по верхнему полю ----
+    // ---- Поиск по верхнему полю (можно последние цифры) ----
     barcodeInput.addEventListener('input', () => {
       const q = barcodeInput.value.trim();
       if (searchTimeout) clearTimeout(searchTimeout);
@@ -391,7 +387,6 @@
         })
         .catch(err => {
           console.error('Ошибка при searchItems:', err);
-          // Ничего не показываем пользователю здесь, просто тихо
         });
     }
 
@@ -413,7 +408,7 @@
       selQty.textContent = newQty;
     }
 
-    // ---- Быстрое списание ----
+    // ---- Быстрое списание снизу ----
     deleteOneBtn.addEventListener('click', () => {
       if (!currentItem) return;
       doDelete(currentItem.barcode, 1);
@@ -449,7 +444,10 @@
         });
     }
 
-    // ---- Добавление / пополнение с логикой проверки ----
+    // ---- Кнопка "Проверить / сохранить" ----
+    // 1) Всегда идём в Google (list)
+    // 2) Если штрихкод найден -> попап +1 / -1
+    // 3) Если не найден -> если есть name+qty, сразу добавляем; иначе просим заполнить
     addBtn.addEventListener('click', () => {
       const barcode = addBarcode.value.trim();
       const name    = addName.value.trim();
@@ -457,6 +455,7 @@
 
       addStatus.textContent = '';
       addStatus.className = 'status';
+      addHint.textContent = '';
 
       if (!barcode) {
         addStatus.textContent = 'Введите штрихкод';
@@ -464,23 +463,7 @@
         return;
       }
 
-      // Если уже проверили и знаем, что такого штрихкода нет – второе нажатие = реальное добавление
-      if (lastCheckedBarcode === barcode && lastCheckedExists === false) {
-        if (!name || qty <= 0) {
-          addStatus.textContent = 'Введите название и количество для нового товара';
-          addStatus.className = 'status error';
-          return;
-        }
-        doAdd(barcode, name, qty, () => {
-          addHint.textContent = '';
-          lastCheckedBarcode = null;
-          lastCheckedExists  = null;
-        });
-        return;
-      }
-
-      // Проверяем, есть ли штрихкод в базе
-      addStatus.textContent = 'Проверяем штрихкод...';
+      addStatus.textContent = 'Проверяем штрихкод в базе...';
       addStatus.className = 'status';
 
       fetch(API_URL + '?action=list&query=' + encodeURIComponent(barcode))
@@ -490,27 +473,27 @@
           const exact = items.find(i => String(i.barcode) === barcode);
 
           if (exact) {
-            // Есть такой товар → показываем попап +1 / -1
-            lastCheckedBarcode = barcode;
-            lastCheckedExists  = true;
-            showExistingModal(exact);
+            // Штрихкод есть в базе -> попап "+1 / -1"
             addStatus.textContent = '';
             addHint.textContent = '';
+            selectItem(exact);
+            showExistingModal(exact);
           } else {
-            // Нет такого товара → просим ввести название и количество
-            lastCheckedBarcode = barcode;
-            lastCheckedExists  = false;
-            addHint.textContent = 'Такого штрихкода нет в базе. Введите название и количество и нажмите кнопку ещё раз.';
+            // Штрихкода нет -> предлагаем добавить
             addStatus.textContent = '';
+            if (!name || qty <= 0) {
+              addHint.textContent = 'Такого штрихкода нет в базе. Введите название и количество и снова нажмите кнопку, чтобы добавить товар.';
+              return;
+            }
+            doAdd(barcode, name, qty, () => {
+              addHint.textContent = 'Новый товар добавлен в базу.';
+            });
           }
         })
         .catch(err => {
           console.error('Ошибка при проверке штрихкода:', err);
-          // Вместо "ошибки" даём мягкую подсказку:
-          lastCheckedBarcode = barcode;
-          lastCheckedExists  = false;
-          addHint.textContent = 'Не удалось проверить штрихкод. Введите название и количество и нажмите кнопку ещё раз, чтобы добавить товар.';
-          addStatus.textContent = '';
+          addStatus.textContent = 'Не удалось проверить штрихкод. Попробуйте ещё раз.';
+          addStatus.className = 'status error';
         });
     });
 
@@ -547,7 +530,7 @@
         });
     }
 
-    // ---- Модалка для уже существующего штрихкода ----
+    // ---- Модалка для уже существующего штрихкода (+1 / -1) ----
     let modalCurrentItem = null;
 
     function showExistingModal(item) {
@@ -566,7 +549,7 @@
       closeExistingModal();
     });
 
-    // +1
+    // +1 из модалки
     modalAdd1.addEventListener('click', () => {
       if (!modalCurrentItem) return;
       doAdd(modalCurrentItem.barcode, modalCurrentItem.name, 1, () => {
@@ -575,7 +558,7 @@
       });
     });
 
-    // -1
+    // -1 из модалки
     modalDel1.addEventListener('click', () => {
       if (!modalCurrentItem) return;
 
@@ -640,15 +623,12 @@
               barcodeInput.value = code;
               addBarcode.value   = code;
 
-              // сброс подсказок по добавлению
-              lastCheckedBarcode = null;
-              lastCheckedExists  = null;
               addHint.textContent = '';
               addStatus.textContent = '';
 
               searchItems(code);
             }
-            // err игнорируем — ZXing много раз кидает "NotFoundException" между успешными сканами
+            // err (NotFoundException и т.п.) игнорируем — это нормальный поток работы сканера
           }
         )
         .then(() => {
