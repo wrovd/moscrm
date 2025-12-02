@@ -163,7 +163,7 @@
       margin-top: 8px;
     }
 
-    #scannerContainer video {
+    #video {
       width: 100%;
       height: 100%;
       object-fit: cover;
@@ -215,6 +215,7 @@
     .modal-text {
       font-size: 14px;
       margin-bottom: 12px;
+      white-space: pre-line;
     }
 
     .modal-buttons {
@@ -245,8 +246,9 @@
     <div class="card" id="scannerCard" style="display:none;">
       <div class="small-text">Наведи камеру на штрихкод. После успешного сканирования сканер сам остановится.</div>
       <div id="scannerContainer">
+        <video id="video" muted autoplay playsinline></video>
         <div class="scanner-overlay-line"></div>
-        <div class="scanner-hint">Наведи штрихкод в линию</div>
+        <div class="scanner-hint">Наведи штрихкод в красную линию</div>
       </div>
     </div>
 
@@ -304,8 +306,8 @@
     </div>
   </div>
 
-  <!-- QuaggaJS для сканера штрихкодов -->
-  <script src="https://unpkg.com/quagga/dist/quagga.min.js"></script>
+  <!-- ZXing для сканера штрихкодов -->
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
   <script>
     // ==== НАСТРОЙКА API URL (ОБЯЗАТЕЛЬНО ЗАМЕНИ) ====
     const API_URL = 'https://script.google.com/macros/s/AKfycbwNTTzxVwYYoOIjSYfHTpCcq4zWHn4aA0G6QvVmTqR2teFMQyP5DNfVuwg8cUcwF1dWZg/exec'; // <-- сюда вставь URL из Apps Script
@@ -331,7 +333,6 @@
 
     const toggleScannerBtn = document.getElementById('toggleScannerBtn');
     const scannerCard      = document.getElementById('scannerCard');
-    const scannerContainer = document.getElementById('scannerContainer');
 
     const existingModal = document.getElementById('existingModal');
     const existingText  = document.getElementById('existingText');
@@ -342,12 +343,13 @@
     let currentItem = null;
     let searchTimeout = null;
     let scannerActive = false;
+    let codeReader = null;
 
-    // флаг для нового штрихкода
+    // флаги проверки штрихкода
     let lastCheckedBarcode = null;
     let lastCheckedExists = null;
 
-    // ---- Поиск по вводу (верхний инпут) ----
+    // ---- Поиск по верхнему полю ----
     barcodeInput.addEventListener('input', () => {
       const q = barcodeInput.value.trim();
       if (searchTimeout) clearTimeout(searchTimeout);
@@ -388,7 +390,8 @@
           suggestionsEl.style.display = 'block';
         })
         .catch(err => {
-          console.error(err);
+          console.error('Ошибка при searchItems:', err);
+          // Ничего не показываем пользователю здесь, просто тихо
         });
     }
 
@@ -440,8 +443,8 @@
           }
         })
         .catch(err => {
-          console.error(err);
-          deleteStatus.textContent = 'Ошибка при списании';
+          console.error('Ошибка при списании:', err);
+          deleteStatus.textContent = 'Техническая ошибка при списании';
           deleteStatus.className = 'status error';
         });
     }
@@ -461,8 +464,7 @@
         return;
       }
 
-      // Если ранее уже проверяли этот штрихкод и он НЕ существует в базе —
-      // вторая нажатие = реальное сохранение нового товара.
+      // Если уже проверили и знаем, что такого штрихкода нет – второе нажатие = реальное добавление
       if (lastCheckedBarcode === barcode && lastCheckedExists === false) {
         if (!name || qty <= 0) {
           addStatus.textContent = 'Введите название и количество для нового товара';
@@ -477,7 +479,7 @@
         return;
       }
 
-      // Шаг 1: проверяем, есть ли такой штрихкод в базе
+      // Проверяем, есть ли штрихкод в базе
       addStatus.textContent = 'Проверяем штрихкод...';
       addStatus.className = 'status';
 
@@ -488,14 +490,14 @@
           const exact = items.find(i => String(i.barcode) === barcode);
 
           if (exact) {
-            // Есть такой товар → показываем popup +1 / -1
+            // Есть такой товар → показываем попап +1 / -1
             lastCheckedBarcode = barcode;
             lastCheckedExists  = true;
             showExistingModal(exact);
             addStatus.textContent = '';
             addHint.textContent = '';
           } else {
-            // Нет такого товара → просим ввести имя и количество
+            // Нет такого товара → просим ввести название и количество
             lastCheckedBarcode = barcode;
             lastCheckedExists  = false;
             addHint.textContent = 'Такого штрихкода нет в базе. Введите название и количество и нажмите кнопку ещё раз.';
@@ -503,9 +505,12 @@
           }
         })
         .catch(err => {
-          console.error(err);
-          addStatus.textContent = 'Ошибка при проверке штрихкода';
-          addStatus.className = 'status error';
+          console.error('Ошибка при проверке штрихкода:', err);
+          // Вместо "ошибки" даём мягкую подсказку:
+          lastCheckedBarcode = barcode;
+          lastCheckedExists  = false;
+          addHint.textContent = 'Не удалось проверить штрихкод. Введите название и количество и нажмите кнопку ещё раз, чтобы добавить товар.';
+          addStatus.textContent = '';
         });
     });
 
@@ -529,17 +534,15 @@
             addStatus.textContent = 'Успешно сохранено';
             addStatus.className = 'status ok';
 
-            // Обновим выбранную позицию, если та же
             if (currentItem && currentItem.barcode === barcode) {
               searchItems(barcode);
             }
-
             if (typeof onDone === 'function') onDone();
           }
         })
         .catch(err => {
-          console.error(err);
-          addStatus.textContent = 'Ошибка при сохранении';
+          console.error('Ошибка при сохранении:', err);
+          addStatus.textContent = 'Техническая ошибка при сохранении';
           addStatus.className = 'status error';
         });
     }
@@ -549,7 +552,8 @@
 
     function showExistingModal(item) {
       modalCurrentItem = item;
-      existingText.textContent = `В базе ${item.quantity} шт. товара:\n«${item.name}».\nЧто вы хотите сделать?`;
+      existingText.textContent =
+        `В базе ${item.quantity} шт. товара:\n«${item.name}».\nЧто вы хотите сделать?`;
       existingModal.style.display = 'flex';
     }
 
@@ -567,7 +571,6 @@
       if (!modalCurrentItem) return;
       doAdd(modalCurrentItem.barcode, modalCurrentItem.name, 1, () => {
         closeExistingModal();
-        // подгружаем обновлённые данные
         searchItems(modalCurrentItem.barcode);
       });
     });
@@ -593,21 +596,20 @@
           closeExistingModal();
         })
         .catch(err => {
-          console.error(err);
-          deleteStatus.textContent = 'Ошибка при списании';
+          console.error('Ошибка при списании из модалки:', err);
+          deleteStatus.textContent = 'Техническая ошибка при списании';
           deleteStatus.className = 'status error';
           closeExistingModal();
         });
     });
 
-    // клик по фону закрывает модалку
     existingModal.addEventListener('click', (e) => {
       if (e.target === existingModal) {
         closeExistingModal();
       }
     });
 
-    // ---- Сканер штрихкодов (QuaggaJS) ----
+    // ---- Сканер штрихкодов на ZXing ----
     toggleScannerBtn.addEventListener('click', () => {
       if (scannerActive) {
         stopScanner();
@@ -622,68 +624,53 @@
       scannerCard.style.display = 'block';
       toggleScannerBtn.textContent = '✖ Выключить сканер';
 
-      Quagga.init({
-        inputStream: {
-          name: "Live",
-          type: "LiveStream",
-          target: scannerContainer,
-          constraints: {
-            facingMode: "environment" // задняя камера
+      if (!codeReader) {
+        codeReader = new ZXing.BrowserMultiFormatReader();
+      }
+
+      codeReader
+        .decodeFromVideoDevice(
+          null,
+          'video',
+          (result, err) => {
+            if (result) {
+              const code = result.getText();
+              stopScanner();
+
+              barcodeInput.value = code;
+              addBarcode.value   = code;
+
+              // сброс подсказок по добавлению
+              lastCheckedBarcode = null;
+              lastCheckedExists  = null;
+              addHint.textContent = '';
+              addStatus.textContent = '';
+
+              searchItems(code);
+            }
+            // err игнорируем — ZXing много раз кидает "NotFoundException" между успешными сканами
           }
-        },
-        decoder: {
-          readers: [
-            "ean_reader",
-            "ean_8_reader",
-            "upc_reader",
-            "upc_e_reader",
-            "code_128_reader"
-          ]
-        },
-        locate: true
-      }, function(err) {
-        if (err) {
-          console.error(err);
+        )
+        .then(() => {
+          scannerActive = true;
+        })
+        .catch(err => {
+          console.error('Ошибка запуска сканера:', err);
+          alert('Не удалось запустить камеру. Разрешите доступ к камере и откройте страницу по HTTPS.');
           scannerCard.style.display = 'none';
           toggleScannerBtn.textContent = '📷 Включить сканер';
-          alert('Не удалось запустить камеру: ' + err);
           scannerActive = false;
-          return;
-        }
-        Quagga.start();
-        scannerActive = true;
-      });
-
-      Quagga.onDetected(onBarcodeDetected);
+        });
     }
 
     function stopScanner() {
       if (!scannerActive) return;
-      Quagga.offDetected(onBarcodeDetected);
-      Quagga.stop();
+      if (codeReader) {
+        codeReader.reset();
+      }
       scannerActive = false;
       scannerCard.style.display = 'none';
       toggleScannerBtn.textContent = '📷 Включить сканер';
-    }
-
-    function onBarcodeDetected(result) {
-      const code = result.codeResult && result.codeResult.code;
-      if (!code) return;
-
-      // Немного страхуемся от ложных срабатываний
-      stopScanner();
-
-      barcodeInput.value = code;
-      addBarcode.value   = code;
-
-      // сразу ищем и вверху, и в логике добавления
-      searchItems(code);
-
-      // сбрасываем подсказку для добавления
-      lastCheckedBarcode = null;
-      lastCheckedExists  = null;
-      addHint.textContent = '';
-      addStatus.textContent = '';
     }
   </script>
 </body>
