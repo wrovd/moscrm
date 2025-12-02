@@ -192,7 +192,7 @@
       border-radius: 8px;
     }
 
-    /* Модальное окно для уже существующего штрихкода */
+    /* Модальное окно */
     .modal {
       display: none;
       position: fixed;
@@ -309,8 +309,8 @@
   <!-- ZXing для сканера штрихкодов -->
   <script src="https://unpkg.com/@zxing/library@latest"></script>
   <script>
-    // ==== НАСТРОЙКА API URL (ОБЯЗАТЕЛЬНО ЗАМЕНИ) ====
-    const API_URL = 'https://script.google.com/macros/s/AKfycbxdU81QQZHBw4GRjE8nLdh8k4DElmmXL98J9IToqcLh-bItm36sA7TE1dk7FJuXZetTbg/exec'; // <-- сюда вставь URL из Apps Script
+    // ==== ВСТАВЬ СВОЙ URL ИЗ APPS SCRIPT ====
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzyqfhKdkYdF6uGV3lBsYN14wNHK_0h7FpSOzy4h7bUxYLQ0P58ysDxwipCOquOOhxilA/exec';
 
     const barcodeInput   = document.getElementById('barcodeInput');
     const suggestionsEl  = document.getElementById('suggestions');
@@ -345,7 +345,7 @@
     let scannerActive = false;
     let codeReader = null;
 
-    // ---- Поиск по верхнему полю (можно последние цифры) ----
+    // ---- Поиск по верхнему полю (action=search, часть штрихкода) ----
     barcodeInput.addEventListener('input', () => {
       const q = barcodeInput.value.trim();
       if (searchTimeout) clearTimeout(searchTimeout);
@@ -360,7 +360,7 @@
     });
 
     function searchItems(query) {
-      fetch(API_URL + '?action=list&query=' + encodeURIComponent(query))
+      fetch(API_URL + '?action=search&query=' + encodeURIComponent(query))
         .then(r => r.json())
         .then(data => {
           const items = data.items || [];
@@ -429,7 +429,7 @@
         .then(r => r.json())
         .then(data => {
           if (data.error) {
-            deleteStatus.textContent = 'Ошибка: ' + data.error;
+            deleteStatus.textContent = 'Ошибка: ' + data.message || data.error;
             deleteStatus.className = 'status error';
           } else {
             deleteStatus.textContent = `Списано ${qty} шт. Новое количество: ${data.newQty}`;
@@ -444,10 +444,7 @@
         });
     }
 
-    // ---- Кнопка "Проверить / сохранить" ----
-    // 1) Всегда идём в Google (list)
-    // 2) Если штрихкод найден -> попап +1 / -1
-    // 3) Если не найден -> если есть name+qty, сразу добавляем; иначе просим заполнить
+    // ---- Кнопка "Проверить / сохранить" (action=get) ----
     addBtn.addEventListener('click', () => {
       const barcode = addBarcode.value.trim();
       const name    = addName.value.trim();
@@ -466,20 +463,26 @@
       addStatus.textContent = 'Проверяем штрихкод в базе...';
       addStatus.className = 'status';
 
-      fetch(API_URL + '?action=list&query=' + encodeURIComponent(barcode))
+      fetch(API_URL + '?action=get&barcode=' + encodeURIComponent(barcode))
         .then(r => r.json())
         .then(data => {
-          const items = data.items || [];
-          const exact = items.find(i => String(i.barcode) === barcode);
+          if (data.error && data.error !== 'GET_ERROR' && data.error !== 'BAD_REQUEST') {
+            // системная ошибка с бэка
+            addStatus.textContent = 'Ошибка сервера: ' + (data.message || data.error);
+            addStatus.className = 'status error';
+            return;
+          }
 
-          if (exact) {
-            // Штрихкод есть в базе -> попап "+1 / -1"
+          const item = data.item || null;
+
+          if (item) {
+            // Штрихкод есть в базе -> попап +1 / -1
             addStatus.textContent = '';
             addHint.textContent = '';
-            selectItem(exact);
-            showExistingModal(exact);
+            selectItem(item);
+            showExistingModal(item);
           } else {
-            // Штрихкода нет -> предлагаем добавить
+            // Нет в базе -> добавляем новый (если есть name+qty)
             addStatus.textContent = '';
             if (!name || qty <= 0) {
               addHint.textContent = 'Такого штрихкода нет в базе. Введите название и количество и снова нажмите кнопку, чтобы добавить товар.';
@@ -511,7 +514,7 @@
         .then(r => r.json())
         .then(data => {
           if (data.error) {
-            addStatus.textContent = 'Ошибка: ' + data.error;
+            addStatus.textContent = 'Ошибка: ' + (data.message || data.error);
             addStatus.className = 'status error';
           } else {
             addStatus.textContent = 'Успешно сохранено';
@@ -530,7 +533,7 @@
         });
     }
 
-    // ---- Модалка для уже существующего штрихкода (+1 / -1) ----
+    // ---- Модалка +1 / -1 ----
     let modalCurrentItem = null;
 
     function showExistingModal(item) {
@@ -549,7 +552,6 @@
       closeExistingModal();
     });
 
-    // +1 из модалки
     modalAdd1.addEventListener('click', () => {
       if (!modalCurrentItem) return;
       doAdd(modalCurrentItem.barcode, modalCurrentItem.name, 1, () => {
@@ -558,7 +560,6 @@
       });
     });
 
-    // -1 из модалки
     modalDel1.addEventListener('click', () => {
       if (!modalCurrentItem) return;
 
@@ -569,7 +570,7 @@
         .then(r => r.json())
         .then(data => {
           if (data.error) {
-            deleteStatus.textContent = 'Ошибка: ' + data.error;
+            deleteStatus.textContent = 'Ошибка: ' + (data.message || data.error);
             deleteStatus.className = 'status error';
           } else {
             deleteStatus.textContent = `Списано 1 шт. Новое количество: ${data.newQty}`;
@@ -592,7 +593,9 @@
       }
     });
 
-    // ---- Сканер штрихкодов на ZXing ----
+    // ---- Сканер на ZXing ----
+    let codeReader = null;
+
     toggleScannerBtn.addEventListener('click', () => {
       if (scannerActive) {
         stopScanner();
@@ -628,7 +631,6 @@
 
               searchItems(code);
             }
-            // err (NotFoundException и т.п.) игнорируем — это нормальный поток работы сканера
           }
         )
         .then(() => {
