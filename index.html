@@ -69,11 +69,6 @@
     .suggestion-item span { color: #666; }
     .suggestion-item:active { background: #f1f1f1; }
 
-    .selected { font-size: 14px; line-height: 1.4; }
-
-    .row { display: flex; gap: 8px; margin-top: 8px; }
-    .row > div { flex: 1; }
-
     .status { font-size: 13px; margin-top: 6px; min-height: 18px; }
     .status.ok { color: #2e7d32; }
     .status.error { color: #c62828; }
@@ -144,7 +139,7 @@
     <!-- Поиск по штрихкоду / последним цифрам -->
     <div class="card">
       <label for="barcodeInput">Штрихкод (можно последние цифры)</label>
-      <input id="barcodeInput" type="tel" inputmode="numeric" placeholder="Например, 3999" />
+      <input id="barcodeInput" type="tel" inputmode="numeric" placeholder="Например, 35924" />
       <div class="small-text">Можно вводить вручную или отсканировать камерой.</div>
       <button id="toggleScannerBtn" class="btn-outline">📷 Включить сканер</button>
       <div id="suggestions" class="suggestions" style="display:none;"></div>
@@ -158,25 +153,6 @@
         <div class="scanner-overlay-line"></div>
         <div class="scanner-hint">Наведи штрихкод в красную линию</div>
       </div>
-    </div>
-
-    <!-- Выбранная плёнка -->
-    <div class="card" id="selectedCard" style="display:none;">
-      <div class="selected">
-        <div><strong id="selName"></strong></div>
-        <div>Штрихкод: <span id="selBarcode"></span></div>
-        <div>Количество на складе: <span id="selQty"></span></div>
-      </div>
-
-      <div class="row">
-        <div><button id="deleteOneBtn" class="btn-danger">Списать 1 шт.</button></div>
-        <div>
-          <input id="deleteQty" type="number" min="1" value="1" />
-          <button id="deleteManyBtn" class="btn-secondary">Списать N шт.</button>
-        </div>
-      </div>
-
-      <div class="status" id="deleteStatus"></div>
     </div>
 
     <!-- Добавление / пополнение -->
@@ -220,15 +196,6 @@
 
     const barcodeInput   = document.getElementById('barcodeInput');
     const suggestionsEl  = document.getElementById('suggestions');
-    const selectedCard   = document.getElementById('selectedCard');
-    const selName        = document.getElementById('selName');
-    const selBarcode     = document.getElementById('selBarcode');
-    const selQty         = document.getElementById('selQty');
-
-    const deleteOneBtn   = document.getElementById('deleteOneBtn');
-    const deleteManyBtn  = document.getElementById('deleteManyBtn');
-    const deleteQtyInput = document.getElementById('deleteQty');
-    const deleteStatus   = document.getElementById('deleteStatus');
 
     const addBarcode     = document.getElementById('addBarcode');
     const addName        = document.getElementById('addName');
@@ -250,8 +217,9 @@
     let searchTimeout = null;
     let scannerActive = false;
     let codeReader = null;
+    let modalCurrentItem = null;
 
-    /* ===== JSONP-обёртка ===== */
+    /* ===== JSONP-обёртка (без CORS проблем) ===== */
     function jsonpCall(params) {
       return new Promise((resolve, reject) => {
         const callbackName = 'jsonp_cb_' + Date.now() + '_' + Math.random().toString(16).slice(2);
@@ -272,9 +240,7 @@
         }, 10000);
 
         function cleanup() {
-          if (script.parentNode) {
-            script.parentNode.removeChild(script);
-          }
+          if (script.parentNode) script.parentNode.removeChild(script);
           clearTimeout(timeout);
           delete window[callbackName];
         }
@@ -300,11 +266,11 @@
       if (!q) {
         suggestionsEl.style.display = 'none';
         suggestionsEl.innerHTML = '';
-        selectedCard.style.display = 'none';
         currentItem = null;
         return;
       }
-      searchTimeout = setTimeout(() => searchItems(q), 250);
+      // чуть ускорили — маленькая задержка
+      searchTimeout = setTimeout(() => searchItems(q), 120);
     });
 
     function searchItems(query) {
@@ -337,55 +303,11 @@
 
     function selectItem(item) {
       currentItem = item;
-      selName.textContent    = item.name;
-      selBarcode.textContent = item.barcode;
-      selQty.textContent     = item.quantity;
-      selectedCard.style.display = 'block';
+      // просто подставляем в форму, без карточки
       addBarcode.value = item.barcode;
       addName.value    = item.name;
-      deleteStatus.textContent = '';
+      addHint.textContent = '';
       suggestionsEl.style.display = 'none';
-    }
-
-    function updateSelectedQty(newQty) {
-      if (!currentItem) return;
-      currentItem.quantity = newQty;
-      selQty.textContent = newQty;
-    }
-
-    /* ===== Списание снизу ===== */
-    deleteOneBtn.addEventListener('click', () => {
-      if (!currentItem) return;
-      doDelete(currentItem.barcode, 1);
-    });
-
-    deleteManyBtn.addEventListener('click', () => {
-      if (!currentItem) return;
-      const qty = Number(deleteQtyInput.value || 1);
-      if (qty <= 0) return;
-      doDelete(currentItem.barcode, qty);
-    });
-
-    function doDelete(barcode, qty) {
-      deleteStatus.textContent = `Списываем ${qty} шт...`;
-      deleteStatus.className = 'status';
-
-      jsonpCall({ action: 'delete', barcode, quantity: qty })
-        .then(data => {
-          if (data.error) {
-            deleteStatus.textContent = 'Ошибка: ' + (data.message || data.error);
-            deleteStatus.className = 'status error';
-          } else {
-            deleteStatus.textContent = `Списано ${qty} шт. Новое количество: ${data.newQty}`;
-            deleteStatus.className = 'status ok';
-            updateSelectedQty(data.newQty);
-          }
-        })
-        .catch(err => {
-          console.error('delete error:', err);
-          deleteStatus.textContent = 'Техническая ошибка при списании';
-          deleteStatus.className = 'status error';
-        });
     }
 
     /* ===== Кнопка "Проверить / сохранить" ===== */
@@ -413,15 +335,17 @@
           const exact = items.find(i => String(i.barcode) === barcode);
 
           if (exact) {
+            // найден существующий товар — показываем только popup
             addStatus.textContent = '';
-            selectItem(exact);
             showExistingModal(exact);
           } else {
+            // нет в базе — добавляем новый
             handleAddNew(barcode, name, qty);
           }
         })
         .catch(err => {
           console.error('check barcode error:', err);
+          // даже если проверка не удалась — даём возможность добавить
           handleAddNew(barcode, name, qty, true);
         });
     });
@@ -434,8 +358,9 @@
           : 'Такого штрихкода нет в базе. Введите название и количество и нажмите кнопку ещё раз, чтобы добавить товар.';
         return;
       }
-      doAdd(barcode, name, qty, () => {
-        addHint.textContent = 'Новый товар добавлен в базу.';
+      doAdd(barcode, name, qty, (data) => {
+        const newQty = data && typeof data.newQty === 'number' ? data.newQty : qty;
+        addHint.textContent = `Новый товар добавлен в базу. Сейчас на складе: ${newQty} шт.`;
       });
     }
 
@@ -451,10 +376,7 @@
           } else {
             addStatus.textContent = 'Успешно сохранено';
             addStatus.className = 'status ok';
-            if (currentItem && currentItem.barcode === barcode) {
-              searchItems(barcode);
-            }
-            if (typeof onDone === 'function') onDone();
+            if (typeof onDone === 'function') onDone(data);
           }
         })
         .catch(err => {
@@ -465,8 +387,6 @@
     }
 
     /* ===== Модалка +1 / -1 ===== */
-    let modalCurrentItem = null;
-
     function showExistingModal(item) {
       modalCurrentItem = item;
       existingText.textContent =
@@ -481,44 +401,58 @@
 
     modalCancel.addEventListener('click', () => closeExistingModal());
 
+    // +1 из popup
     modalAdd1.addEventListener('click', () => {
       if (!modalCurrentItem) return;
-      doAdd(modalCurrentItem.barcode, modalCurrentItem.name, 1, () => {
+
+      const code = modalCurrentItem.barcode;
+      const name = modalCurrentItem.name;
+      const currentQty = modalCurrentItem.quantity;
+
+      doAdd(code, name, 1, (data) => {
         closeExistingModal();
-        searchItems(modalCurrentItem.barcode);
+        const newQty = data && typeof data.newQty === 'number'
+          ? data.newQty
+          : currentQty + 1;
+        addStatus.textContent = `Добавлено 1 шт. Новое количество: ${newQty}`;
+        addStatus.className = 'status ok';
       });
     });
 
+    // -1 из popup
     modalDel1.addEventListener('click', () => {
       if (!modalCurrentItem) return;
 
-      deleteStatus.textContent = 'Списываем 1 шт...';
-      deleteStatus.className = 'status';
+      const code = modalCurrentItem.barcode;
+      const currentQty = modalCurrentItem.quantity;
 
-      jsonpCall({ action: 'delete', barcode: modalCurrentItem.barcode, quantity: 1 })
+      addStatus.textContent = 'Списываем 1 шт...';
+      addStatus.className = 'status';
+
+      jsonpCall({ action: 'delete', barcode: code, quantity: 1 })
         .then(data => {
-          if (data.error) {
-            deleteStatus.textContent = 'Ошибка: ' + (data.message || data.error);
-            deleteStatus.className = 'status error';
-          } else {
-            deleteStatus.textContent = `Списано 1 шт. Новое количество: ${data.newQty}`;
-            deleteStatus.className = 'status ok';
-            updateSelectedQty(data.newQty);
-          }
           closeExistingModal();
+          if (data.error) {
+            addStatus.textContent = 'Ошибка: ' + (data.message || data.error);
+            addStatus.className = 'status error';
+          } else {
+            const newQty = data && typeof data.newQty === 'number'
+              ? data.newQty
+              : Math.max(currentQty - 1, 0);
+            addStatus.textContent = `Списано 1 шт. Новое количество: ${newQty}`;
+            addStatus.className = 'status ok';
+          }
         })
         .catch(err => {
           console.error('delete modal error:', err);
-          deleteStatus.textContent = 'Техническая ошибка при списании';
-          deleteStatus.className = 'status error';
+          addStatus.textContent = 'Техническая ошибка при списании';
+          addStatus.className = 'status error';
           closeExistingModal();
         });
     });
 
     existingModal.addEventListener('click', (e) => {
-      if (e.target === existingModal) {
-        closeExistingModal();
-      }
+      if (e.target === existingModal) closeExistingModal();
     });
 
     /* ===== Сканер ZXing ===== */
@@ -555,7 +489,7 @@
               addHint.textContent = '';
               addStatus.textContent = '';
 
-              searchItems(code);
+              searchItems(code); // быстрый поиск по полному баркоду
             }
           }
         )
