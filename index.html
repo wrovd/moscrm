@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Склад плёнки</title>
+  <title>moscrm — Склад плёнки</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <style>
     body {
@@ -12,8 +12,8 @@
       background: #f5f5f5;
       color: #222;
     }
-    .container { max-width: 480px; margin: 0 auto; padding: 16px; }
-    h1 { font-size: 20px; text-align: center; margin-bottom: 12px; }
+    .container { max-width: 520px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 20px; text-align: center; margin: 0 0 12px; }
 
     .card {
       background: #ffffff;
@@ -25,7 +25,7 @@
 
     label { display: block; font-size: 13px; margin-bottom: 4px; color: #555; }
 
-    input, button, select {
+    input, button {
       width: 100%;
       box-sizing: border-box;
       font-size: 16px;
@@ -34,25 +34,19 @@
       border: 1px solid #ccc;
     }
 
-    input, select { background: #fafafa; }
-
-    button {
-      margin-top: 8px;
-      font-weight: 600;
-      border: none;
-      cursor: pointer;
-    }
+    input { background: #fafafa; }
+    button { margin-top: 8px; font-weight: 700; border: none; cursor: pointer; }
 
     .btn-primary { background: #007bff; color: #fff; }
     .btn-danger  { background: #dc3545; color: #fff; }
     .btn-secondary { background: #e0e0e0; color: #333; }
     .btn-outline { background: #fff; border: 1px solid #007bff; color: #007bff; }
 
-    .small-text { font-size: 12px; color: #777; margin-top: 4px; }
+    .small-text { font-size: 12px; color: #777; margin-top: 6px; line-height: 1.35; }
 
     .suggestions {
-      margin-top: 6px;
-      max-height: 220px;
+      margin-top: 8px;
+      max-height: 240px;
       overflow-y: auto;
       border-radius: 10px;
       border: 1px solid #ddd;
@@ -60,56 +54,68 @@
     }
 
     .suggestion-item {
-      padding: 8px 10px;
+      padding: 10px 10px;
       border-bottom: 1px solid #f0f0f0;
       font-size: 13px;
     }
     .suggestion-item:last-child { border-bottom: none; }
-    .suggestion-item strong { display: block; font-size: 14px; }
+    .suggestion-item strong { display: block; font-size: 14px; margin-bottom: 2px; }
     .suggestion-item span { color: #666; }
     .suggestion-item:active { background: #f1f1f1; }
 
-    .status { font-size: 13px; margin-top: 6px; min-height: 18px; }
+    .status { font-size: 13px; margin-top: 8px; min-height: 18px; }
     .status.ok { color: #2e7d32; }
     .status.error { color: #c62828; }
 
-    /* Сканер */
-    #scannerCard { padding: 10px 12px; }
+    /* Scanner */
+    #scannerCard { padding: 12px 14px; }
     #scannerContainer {
       position: relative;
       width: 100%;
-      height: 220px;
+      height: 240px;
       background: #000;
       border-radius: 12px;
       overflow: hidden;
-      margin-top: 8px;
+      margin-top: 10px;
     }
-    #video { width: 100%; height: 100%; object-fit: cover; }
-
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
     .scanner-overlay-line {
       position: absolute;
       top: 50%;
-      left: 10%;
-      right: 10%;
+      left: 8%;
+      right: 8%;
       height: 2px;
       transform: translateY(-50%);
-      background: rgba(255, 0, 0, 0.8);
-      box-shadow: 0 0 8px rgba(255,0,0,0.9);
+      background: rgba(255, 0, 0, 0.85);
+      box-shadow: 0 0 10px rgba(255,0,0,0.9);
     }
-
     .scanner-hint {
       font-size: 12px;
       color: #eee;
       position: absolute;
-      bottom: 6px;
+      bottom: 8px;
       left: 50%;
       transform: translateX(-50%);
       background: rgba(0,0,0,0.45);
-      padding: 4px 8px;
-      border-radius: 8px;
+      padding: 5px 10px;
+      border-radius: 10px;
+      text-align: center;
+      max-width: 90%;
+    }
+    .scanner-toolbar {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .scanner-toolbar button {
+      margin-top: 0;
     }
 
-    /* Модалка */
+    /* Modal */
     .modal {
       display: none;
       position: fixed;
@@ -118,58 +124,70 @@
       z-index: 999;
       align-items: center;
       justify-content: center;
+      padding: 14px;
     }
     .modal-content {
       background: #fff;
       border-radius: 16px;
       padding: 16px;
-      max-width: 340px;
-      width: 92%;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      max-width: 360px;
+      width: 100%;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.25);
     }
-    .modal-text { font-size: 14px; margin-bottom: 12px; white-space: pre-line; }
-    .modal-buttons { display: flex; gap: 8px; margin-top: 4px; }
+    .modal-text {
+      font-size: 14px;
+      margin-bottom: 12px;
+      white-space: pre-line;
+      line-height: 1.35;
+    }
+    .modal-buttons {
+      display: flex;
+      gap: 10px;
+    }
     .modal-buttons button { flex: 1; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Склад плёнки</h1>
+    <h1>moscrm — Склад плёнки</h1>
 
-    <!-- Поиск по штрихкоду / последним цифрам -->
+    <!-- Search / scan -->
     <div class="card">
       <label for="barcodeInput">Штрихкод (можно последние цифры)</label>
       <input id="barcodeInput" type="tel" inputmode="numeric" placeholder="Например, 35924" />
-      <div class="small-text">Можно вводить вручную или отсканировать камерой.</div>
-      <button id="toggleScannerBtn" class="btn-outline">📷 Включить сканер</button>
+      <div class="small-text">Вводи последние цифры — появится список. Или нажми «Сканировать».</div>
+
+      <button id="toggleScannerBtn" class="btn-outline">📷 Сканировать</button>
       <div id="suggestions" class="suggestions" style="display:none;"></div>
     </div>
 
-    <!-- Сканер -->
+    <!-- Scanner -->
     <div class="card" id="scannerCard" style="display:none;">
-      <div class="small-text">Наведи камеру на штрихкод. После успешного сканирования сканер сам остановится.</div>
-
-      <!-- Выбор камеры (важно для Android) -->
-      <div style="display:flex; gap:8px; margin-top:8px;">
-        <select id="cameraSelect" style="flex:1;"></select>
-        <button id="switchCameraBtn" class="btn-secondary" style="width:auto; padding:10px 12px; margin-top:0;">🔁</button>
+      <div class="small-text">
+        На Android (Huawei/Samsung) камера может включаться не та. Нажми <b>🔁 Сменить камеру</b>, если считывает плохо.
       </div>
-      <div class="small-text">Если плохо считывает — выбери другую камеру (не ширик/не телевик).</div>
+
+      <div class="scanner-toolbar">
+        <button id="switchCameraBtn" class="btn-secondary">🔁 Сменить камеру</button>
+        <button id="stopScannerBtn" class="btn-secondary">✖ Закрыть</button>
+      </div>
 
       <div id="scannerContainer">
         <video id="video" muted autoplay playsinline></video>
         <div class="scanner-overlay-line"></div>
-        <div class="scanner-hint">Наведи штрихкод в красную линию</div>
+        <div class="scanner-hint" id="scannerHint">Наведи штрихкод на красную линию</div>
       </div>
+
+      <div class="status" id="scannerStatus"></div>
     </div>
 
-    <!-- Добавление / пополнение -->
+    <!-- Add / check -->
     <div class="card">
       <label for="addBarcode">Штрихкод</label>
       <input id="addBarcode" type="tel" inputmode="numeric" placeholder="Полный штрихкод" />
 
-      <label for="addName" style="margin-top:8px;">Название плёнки</label>
-      <input id="addName" type="text" placeholder="Например, Hydrogel iPhone 11" />
+      <label for="addName" style="margin-top:8px;">Название</label>
+      <input id="addName" type="text" placeholder="Например, Гидрогелевая плёнка..." />
 
       <label for="addQty" style="margin-top:8px;">Кол-во</label>
       <input id="addQty" type="number" min="1" value="1" />
@@ -180,7 +198,7 @@
     </div>
   </div>
 
-  <!-- POPUP: если товар найден — только popup -->
+  <!-- Popup for existing item -->
   <div class="modal" id="existingModal">
     <div class="modal-content">
       <div class="modal-text" id="existingText"></div>
@@ -188,54 +206,47 @@
         <button id="modalAdd1" class="btn-primary">+1</button>
         <button id="modalDel1" class="btn-danger">-1</button>
       </div>
-      <button id="modalCancel" class="btn-secondary" style="margin-top:8px;">Отмена</button>
+      <button id="modalCancel" class="btn-secondary" style="margin-top:10px;">Отмена</button>
     </div>
   </div>
 
-  <!-- ZXing -->
   <script src="https://unpkg.com/@zxing/library@latest"></script>
   <script>
-    // 1) ВСТАВЬ СЮДА СВОЙ URL ИЗ APPS SCRIPT (web app /exec)
+    // Вставь сюда URL Apps Script Web App (/exec)
     const API_URL = 'https://script.google.com/macros/s/AKfycbyo6uual9eT8NbBZFPFPyj8k6lpCuW2n95qMZQx_L4VV4i5AHlT7z8vb6VsvY1TPDRYvA/exec';
 
-    const barcodeInput   = document.getElementById('barcodeInput');
-    const suggestionsEl  = document.getElementById('suggestions');
+    const barcodeInput = document.getElementById('barcodeInput');
+    const suggestionsEl = document.getElementById('suggestions');
 
-    const addBarcode     = document.getElementById('addBarcode');
-    const addName        = document.getElementById('addName');
-    const addQty         = document.getElementById('addQty');
-    const addBtn         = document.getElementById('addBtn');
-    const addStatus      = document.getElementById('addStatus');
-    const addHint        = document.getElementById('addHint');
+    const addBarcode = document.getElementById('addBarcode');
+    const addName = document.getElementById('addName');
+    const addQty = document.getElementById('addQty');
+    const addBtn = document.getElementById('addBtn');
+    const addHint = document.getElementById('addHint');
+    const addStatus = document.getElementById('addStatus');
 
     const toggleScannerBtn = document.getElementById('toggleScannerBtn');
-    const scannerCard      = document.getElementById('scannerCard');
+    const scannerCard = document.getElementById('scannerCard');
+    const switchCameraBtn = document.getElementById('switchCameraBtn');
+    const stopScannerBtn = document.getElementById('stopScannerBtn');
+    const scannerStatus = document.getElementById('scannerStatus');
+    const scannerHint = document.getElementById('scannerHint');
+    const videoEl = document.getElementById('video');
 
     const existingModal = document.getElementById('existingModal');
-    const existingText  = document.getElementById('existingText');
-    const modalAdd1     = document.getElementById('modalAdd1');
-    const modalDel1     = document.getElementById('modalDel1');
-    const modalCancel   = document.getElementById('modalCancel');
-
-    const cameraSelect = document.getElementById('cameraSelect');
-    const switchCameraBtn = document.getElementById('switchCameraBtn');
+    const existingText = document.getElementById('existingText');
+    const modalAdd1 = document.getElementById('modalAdd1');
+    const modalDel1 = document.getElementById('modalDel1');
+    const modalCancel = document.getElementById('modalCancel');
 
     let searchTimeout = null;
-
-    let scannerActive = false;
-    let codeReader = null;
-
     let modalCurrentItem = null;
 
-    let selectedDeviceId = null;
-    let availableCameras = [];
-    const lastUsedDeviceIdKey = 'moscrm_last_camera_id';
-
-    /* ===== JSONP (без CORS) ===== */
+    // ===== JSONP (обход CORS) =====
     function jsonpCall(params) {
       return new Promise((resolve, reject) => {
-        const callbackName = 'jsonp_cb_' + Date.now() + '_' + Math.random().toString(16).slice(2);
-        params = Object.assign({}, params, { callback: callbackName });
+        const cb = 'jsonp_cb_' + Date.now() + '_' + Math.random().toString(16).slice(2);
+        params = Object.assign({}, params, { callback: cb });
 
         const query = Object.keys(params)
           .map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k]))
@@ -253,17 +264,17 @@
         function cleanup() {
           if (script.parentNode) script.parentNode.removeChild(script);
           clearTimeout(timeout);
-          delete window[callbackName];
+          delete window[cb];
         }
 
-        window[callbackName] = (data) => { cleanup(); resolve(data); };
+        window[cb] = (data) => { cleanup(); resolve(data); };
         script.onerror = () => { cleanup(); reject(new Error('JSONP script error')); };
 
         document.body.appendChild(script);
       });
     }
 
-    /* ===== Поиск (ускорено) ===== */
+    // ===== Search suggestions (fast) =====
     barcodeInput.addEventListener('input', () => {
       const q = barcodeInput.value.trim();
       if (searchTimeout) clearTimeout(searchTimeout);
@@ -284,19 +295,17 @@
             suggestionsEl.innerHTML = '';
             return;
           }
-
           suggestionsEl.innerHTML = '';
           items.forEach(item => {
             const div = document.createElement('div');
             div.className = 'suggestion-item';
             div.innerHTML = `
-              <strong>${item.name}</strong>
-              <span>ШК: ${item.barcode} • Остаток: ${item.quantity}</span>
+              <strong>${escapeHtml(item.name)}</strong>
+              <span>ШК: ${escapeHtml(String(item.barcode))} • Остаток: ${Number(item.quantity||0)}</span>
             `;
             div.addEventListener('click', () => {
-              // подставляем в форму и прячем список
-              addBarcode.value = item.barcode;
-              addName.value = item.name;
+              addBarcode.value = String(item.barcode);
+              addName.value = String(item.name || '');
               addHint.textContent = '';
               suggestionsEl.style.display = 'none';
             });
@@ -307,7 +316,13 @@
         .catch(err => console.error('searchItems error:', err));
     }
 
-    /* ===== Кнопка "Проверить / сохранить" ===== */
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, m => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      })[m]);
+    }
+
+    // ===== Check/Save button =====
     addBtn.addEventListener('click', () => {
       const barcode = addBarcode.value.trim();
       const name = addName.value.trim();
@@ -324,7 +339,6 @@
       }
 
       addStatus.textContent = 'Проверяем штрихкод в базе...';
-      addStatus.className = 'status';
 
       jsonpCall({ action: 'list', query: barcode })
         .then(data => {
@@ -344,16 +358,17 @@
         });
     });
 
-    function handleAddNew(barcode, name, qty, fromError = false) {
+    function handleAddNew(barcode, name, qty, fromError=false) {
       addStatus.textContent = '';
+      addStatus.className = 'status';
       if (!name || qty <= 0) {
         addHint.textContent = fromError
-          ? 'Не получилось проверить в базе. Введите название и количество и нажмите кнопку ещё раз, чтобы добавить товар.'
+          ? 'Не удалось проверить базу. Введите название и количество и нажмите кнопку ещё раз, чтобы добавить товар.'
           : 'Такого штрихкода нет в базе. Введите название и количество и нажмите кнопку ещё раз, чтобы добавить товар.';
         return;
       }
       doAdd(barcode, name, qty, (data) => {
-        const newQty = data && typeof data.newQty === 'number' ? data.newQty : qty;
+        const newQty = (data && typeof data.newQty === 'number') ? data.newQty : qty;
         addStatus.textContent = `Добавлено. Сейчас на складе: ${newQty}`;
         addStatus.className = 'status ok';
       });
@@ -399,11 +414,11 @@
         });
     }
 
-    /* ===== POPUP +1 / -1 ===== */
+    // ===== Popup existing =====
     function showExistingModal(item) {
       modalCurrentItem = item;
       existingText.textContent =
-        `В базе ${item.quantity} шт. товара:\n«${item.name}».\nЧто вы хотите сделать?`;
+        `В базе ${Number(item.quantity || 0)} шт. товара:\n«${String(item.name || '')}».\nЧто вы хотите сделать?`;
       existingModal.style.display = 'flex';
     }
 
@@ -413,13 +428,14 @@
     }
 
     modalCancel.addEventListener('click', closeExistingModal);
-    existingModal.addEventListener('click', (e) => { if (e.target === existingModal) closeExistingModal(); });
+    existingModal.addEventListener('click', (e) => {
+      if (e.target === existingModal) closeExistingModal();
+    });
 
     modalAdd1.addEventListener('click', () => {
       if (!modalCurrentItem) return;
-
-      const code = modalCurrentItem.barcode;
-      const name = modalCurrentItem.name;
+      const code = String(modalCurrentItem.barcode);
+      const name = String(modalCurrentItem.name || '');
       const oldQty = Number(modalCurrentItem.quantity || 0);
 
       doAdd(code, name, 1, (data) => {
@@ -432,8 +448,7 @@
 
     modalDel1.addEventListener('click', () => {
       if (!modalCurrentItem) return;
-
-      const code = modalCurrentItem.barcode;
+      const code = String(modalCurrentItem.barcode);
       const oldQty = Number(modalCurrentItem.quantity || 0);
 
       doDelete(code, 1, (data) => {
@@ -444,151 +459,115 @@
       });
     });
 
-    /* ===== Сканер ZXing: исправление Android-камер ===== */
-    function scoreCamera_(label) {
-      const s = (label || '').toLowerCase();
-      let score = 0;
+    // ===== Scanner (Huawei-friendly re-invented) =====
+    // Главная идея: НЕ deviceId, а перезапуск getUserMedia с разными constraints.
+    // Huawei часто не даёт список камер и игнорирует deviceId.
+    const constraintsVariants = [
+      // 0 — строгий environment (на некоторых андроидах может падать)
+      { audio: false, video: { facingMode: { exact: "environment" } } },
 
-      if (s.includes('back') || s.includes('rear') || s.includes('environment')) score += 50;
-      if (s.includes('main')) score += 30;
-      if (s.includes('wide')) score += 20;
+      // 1 — мягкий environment
+      { audio: false, video: { facingMode: "environment" } },
 
-      if (s.includes('ultra') || s.includes('0.5') || s.includes('0,5')) score -= 25;
-      if (s.includes('tele') || s.includes('zoom') || s.includes('2x') || s.includes('3x')) score -= 35;
+      // 2 — просто video:true (пусть система выберет)
+      { audio: false, video: true }
+    ];
 
-      if (s.includes('front') || s.includes('user')) score -= 100;
+    // “режим камеры”: мы циклим 0→1→2→0 по кнопке 🔁
+    let cameraMode = 0;
 
-      return score;
-    }
-
-    async function loadCameras_() {
-      // чтобы появились labels на Android, попробуем кратко запросить доступ
-      try {
-        const tmpStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        tmpStream.getTracks().forEach(t => t.stop());
-      } catch (_) {}
-
-      const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
-      availableCameras = devices || [];
-
-      cameraSelect.innerHTML = '';
-      availableCameras.forEach((d, i) => {
-        const opt = document.createElement('option');
-        opt.value = d.deviceId;
-        opt.textContent = d.label || `Camera ${i + 1}`;
-        cameraSelect.appendChild(opt);
-      });
-
-      const showChooser = availableCameras.length > 1;
-      cameraSelect.style.display = showChooser ? '' : 'none';
-      switchCameraBtn.style.display = showChooser ? '' : 'none';
-
-      const saved = localStorage.getItem(lastUsedDeviceIdKey);
-      if (saved && availableCameras.some(c => c.deviceId === saved)) {
-        selectedDeviceId = saved;
-      } else {
-        let best = null, bestScore = -9999;
-        for (const cam of availableCameras) {
-          const sc = scoreCamera_(cam.label);
-          if (sc > bestScore) { bestScore = sc; best = cam; }
-        }
-        selectedDeviceId = best ? best.deviceId : (availableCameras[0] ? availableCameras[0].deviceId : null);
-      }
-
-      if (selectedDeviceId) cameraSelect.value = selectedDeviceId;
-    }
-
-    cameraSelect.addEventListener('change', () => {
-      selectedDeviceId = cameraSelect.value || null;
-      if (selectedDeviceId) localStorage.setItem(lastUsedDeviceIdKey, selectedDeviceId);
-      if (scannerActive) { stopScanner(); startScanner(); }
-    });
-
-    switchCameraBtn.addEventListener('click', () => {
-      if (!availableCameras.length) return;
-      const idx = availableCameras.findIndex(c => c.deviceId === selectedDeviceId);
-      const next = availableCameras[(idx + 1) % availableCameras.length];
-      if (next) {
-        selectedDeviceId = next.deviceId;
-        cameraSelect.value = selectedDeviceId;
-        localStorage.setItem(lastUsedDeviceIdKey, selectedDeviceId);
-        if (scannerActive) { stopScanner(); startScanner(); }
-      }
-    });
+    let codeReader = null;
+    let scannerRunning = false;
 
     toggleScannerBtn.addEventListener('click', () => {
-      if (scannerActive) stopScanner();
+      if (scannerRunning) stopScanner();
       else startScanner();
     });
 
-    async function startScanner() {
-      if (scannerActive) return;
+    stopScannerBtn.addEventListener('click', () => stopScanner());
 
+    switchCameraBtn.addEventListener('click', () => {
+      cameraMode = (cameraMode + 1) % constraintsVariants.length;
+      if (scannerRunning) {
+        scannerStatus.textContent = 'Переключаем камеру...';
+        scannerStatus.className = 'status';
+        restartScanner();
+      }
+    });
+
+    async function startScanner() {
       scannerCard.style.display = 'block';
-      toggleScannerBtn.textContent = '✖ Выключить сканер';
+      toggleScannerBtn.textContent = '✖ Закрыть сканер';
+
+      scannerStatus.textContent = 'Запускаем камеру...';
+      scannerStatus.className = 'status';
 
       if (!codeReader) codeReader = new ZXing.BrowserMultiFormatReader();
 
-      try { await loadCameras_(); } catch (err) { console.error('loadCameras error:', err); }
+      // Важно: при первом запуске пробуем текущий cameraMode,
+      // если не стартует — автоматически переберём варианты.
+      await restartScanner(true);
+    }
 
-      const deviceIdToUse = selectedDeviceId || null;
+    async function restartScanner(autoFallback=false) {
+      // reset ZXing (остановит треки, если они были)
+      try { if (codeReader) codeReader.reset(); } catch (_) {}
 
-      try {
-        await codeReader.decodeFromVideoDevice(
-          deviceIdToUse,
-          'video',
-          (result, err) => {
-            if (result) {
-              const code = result.getText();
-              stopScanner();
+      const tryOrder = autoFallback
+        ? [cameraMode, 0, 1, 2].filter((v, i, a) => a.indexOf(v) === i) // уникальные
+        : [cameraMode];
 
-              barcodeInput.value = code;
-              addBarcode.value = code;
-              addHint.textContent = '';
-              addStatus.textContent = '';
-
-              // показываем подсказки/поиск
-              searchItems(code);
-            }
-          }
-        );
-        scannerActive = true;
-      } catch (err) {
-        console.error('scanner error:', err);
-
-        // fallback: если выбранная камера не стартанула — пробуем без deviceId
+      for (const mode of tryOrder) {
         try {
-          await codeReader.decodeFromVideoDevice(
-            null,
-            'video',
-            (result) => {
+          scannerHint.textContent = `Режим камеры: ${mode + 1} / ${constraintsVariants.length} (🔁 если плохо читает)`;
+          await codeReader.decodeFromConstraints(
+            constraintsVariants[mode],
+            videoEl,
+            (result, err) => {
               if (result) {
                 const code = result.getText();
-                stopScanner();
+                stopScanner(); // сразу закрываем
+
                 barcodeInput.value = code;
                 addBarcode.value = code;
+
                 addHint.textContent = '';
                 addStatus.textContent = '';
+                addStatus.className = 'status';
+
+                // быстрый поиск по полному коду
                 searchItems(code);
               }
             }
           );
-          scannerActive = true;
-        } catch (err2) {
-          console.error('scanner fallback error:', err2);
-          alert('Не удалось запустить камеру. Проверь HTTPS и разрешения камеры.');
-          scannerCard.style.display = 'none';
-          toggleScannerBtn.textContent = '📷 Включить сканер';
-          scannerActive = false;
+
+          // если decodeFromConstraints не бросил ошибку — значит камера стартовала
+          cameraMode = mode;
+          scannerRunning = true;
+          scannerStatus.textContent = 'Камера включена. Наведи штрихкод на линию.';
+          scannerStatus.className = 'status ok';
+          return;
+
+        } catch (err) {
+          console.warn('Scanner start failed (mode=' + mode + '):', err);
+          // пробуем следующий
         }
       }
+
+      scannerRunning = false;
+      scannerStatus.textContent = 'Не удалось запустить камеру. Проверь разрешения и HTTPS.';
+      scannerStatus.className = 'status error';
     }
 
     function stopScanner() {
       try { if (codeReader) codeReader.reset(); } catch (_) {}
-      scannerActive = false;
+      scannerRunning = false;
+
       scannerCard.style.display = 'none';
-      toggleScannerBtn.textContent = '📷 Включить сканер';
+      toggleScannerBtn.textContent = '📷 Сканировать';
+
+      scannerStatus.textContent = '';
+      scannerStatus.className = 'status';
     }
   </script>
 </body>
