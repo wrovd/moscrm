@@ -25,7 +25,7 @@
 
     label { display: block; font-size: 13px; margin-bottom: 4px; color: #555; }
 
-    input, button {
+    input, button, select {
       width: 100%;
       box-sizing: border-box;
       font-size: 16px;
@@ -34,7 +34,7 @@
       border: 1px solid #ccc;
     }
 
-    input { background: #fafafa; }
+    input, select { background: #fafafa; }
 
     button {
       margin-top: 8px;
@@ -123,8 +123,8 @@
       background: #fff;
       border-radius: 16px;
       padding: 16px;
-      max-width: 320px;
-      width: 90%;
+      max-width: 340px;
+      width: 92%;
       box-shadow: 0 4px 16px rgba(0,0,0,0.25);
     }
     .modal-text { font-size: 14px; margin-bottom: 12px; white-space: pre-line; }
@@ -148,6 +148,14 @@
     <!-- Сканер -->
     <div class="card" id="scannerCard" style="display:none;">
       <div class="small-text">Наведи камеру на штрихкод. После успешного сканирования сканер сам остановится.</div>
+
+      <!-- Выбор камеры (важно для Android) -->
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <select id="cameraSelect" style="flex:1;"></select>
+        <button id="switchCameraBtn" class="btn-secondary" style="width:auto; padding:10px 12px; margin-top:0;">🔁</button>
+      </div>
+      <div class="small-text">Если плохо считывает — выбери другую камеру (не ширик/не телевик).</div>
+
       <div id="scannerContainer">
         <video id="video" muted autoplay playsinline></video>
         <div class="scanner-overlay-line"></div>
@@ -163,12 +171,8 @@
       <label for="addName" style="margin-top:8px;">Название плёнки</label>
       <input id="addName" type="text" placeholder="Например, Hydrogel iPhone 11" />
 
-      <div class="row">
-        <div>
-          <label for="addQty">Кол-во</label>
-          <input id="addQty" type="number" min="1" value="1" />
-        </div>
-      </div>
+      <label for="addQty" style="margin-top:8px;">Кол-во</label>
+      <input id="addQty" type="number" min="1" value="1" />
 
       <button id="addBtn" class="btn-primary">Проверить / сохранить</button>
       <div class="small-text" id="addHint"></div>
@@ -176,7 +180,7 @@
     </div>
   </div>
 
-  <!-- Модалка +1 / -1 -->
+  <!-- POPUP: если товар найден — только popup -->
   <div class="modal" id="existingModal">
     <div class="modal-content">
       <div class="modal-text" id="existingText"></div>
@@ -191,7 +195,7 @@
   <!-- ZXing -->
   <script src="https://unpkg.com/@zxing/library@latest"></script>
   <script>
-    // ВСТАВЬ СЮДА СВОЙ URL ИЗ APPS SCRIPT
+    // 1) ВСТАВЬ СЮДА СВОЙ URL ИЗ APPS SCRIPT (web app /exec)
     const API_URL = 'https://script.google.com/macros/s/AKfycbyo6uual9eT8NbBZFPFPyj8k6lpCuW2n95qMZQx_L4VV4i5AHlT7z8vb6VsvY1TPDRYvA/exec';
 
     const barcodeInput   = document.getElementById('barcodeInput');
@@ -213,17 +217,24 @@
     const modalDel1     = document.getElementById('modalDel1');
     const modalCancel   = document.getElementById('modalCancel');
 
-    let currentItem = null;
+    const cameraSelect = document.getElementById('cameraSelect');
+    const switchCameraBtn = document.getElementById('switchCameraBtn');
+
     let searchTimeout = null;
+
     let scannerActive = false;
     let codeReader = null;
+
     let modalCurrentItem = null;
 
-    /* ===== JSONP-обёртка (без CORS проблем) ===== */
+    let selectedDeviceId = null;
+    let availableCameras = [];
+    const lastUsedDeviceIdKey = 'moscrm_last_camera_id';
+
+    /* ===== JSONP (без CORS) ===== */
     function jsonpCall(params) {
       return new Promise((resolve, reject) => {
         const callbackName = 'jsonp_cb_' + Date.now() + '_' + Math.random().toString(16).slice(2);
-
         params = Object.assign({}, params, { callback: callbackName });
 
         const query = Object.keys(params)
@@ -234,7 +245,7 @@
         script.src = API_URL + '?' + query;
         script.async = true;
 
-        let timeout = setTimeout(() => {
+        const timeout = setTimeout(() => {
           cleanup();
           reject(new Error('JSONP timeout'));
         }, 10000);
@@ -245,32 +256,23 @@
           delete window[callbackName];
         }
 
-        window[callbackName] = (data) => {
-          cleanup();
-          resolve(data);
-        };
-
-        script.onerror = () => {
-          cleanup();
-          reject(new Error('JSONP script error'));
-        };
+        window[callbackName] = (data) => { cleanup(); resolve(data); };
+        script.onerror = () => { cleanup(); reject(new Error('JSONP script error')); };
 
         document.body.appendChild(script);
       });
     }
 
-    /* ===== Поиск по верхнему полю (часть штрихкода) ===== */
+    /* ===== Поиск (ускорено) ===== */
     barcodeInput.addEventListener('input', () => {
       const q = barcodeInput.value.trim();
       if (searchTimeout) clearTimeout(searchTimeout);
       if (!q) {
         suggestionsEl.style.display = 'none';
         suggestionsEl.innerHTML = '';
-        currentItem = null;
         return;
       }
-      // чуть ускорили — маленькая задержка
-      searchTimeout = setTimeout(() => searchItems(q), 120);
+      searchTimeout = setTimeout(() => searchItems(q), 80);
     });
 
     function searchItems(query) {
@@ -291,30 +293,25 @@
               <strong>${item.name}</strong>
               <span>ШК: ${item.barcode} • Остаток: ${item.quantity}</span>
             `;
-            div.addEventListener('click', () => selectItem(item));
+            div.addEventListener('click', () => {
+              // подставляем в форму и прячем список
+              addBarcode.value = item.barcode;
+              addName.value = item.name;
+              addHint.textContent = '';
+              suggestionsEl.style.display = 'none';
+            });
             suggestionsEl.appendChild(div);
           });
           suggestionsEl.style.display = 'block';
         })
-        .catch(err => {
-          console.error('searchItems error:', err);
-        });
-    }
-
-    function selectItem(item) {
-      currentItem = item;
-      // просто подставляем в форму, без карточки
-      addBarcode.value = item.barcode;
-      addName.value    = item.name;
-      addHint.textContent = '';
-      suggestionsEl.style.display = 'none';
+        .catch(err => console.error('searchItems error:', err));
     }
 
     /* ===== Кнопка "Проверить / сохранить" ===== */
     addBtn.addEventListener('click', () => {
       const barcode = addBarcode.value.trim();
-      const name    = addName.value.trim();
-      const qty     = Number(addQty.value || 1);
+      const name = addName.value.trim();
+      const qty = Number(addQty.value || 1);
 
       addStatus.textContent = '';
       addStatus.className = 'status';
@@ -335,17 +332,14 @@
           const exact = items.find(i => String(i.barcode) === barcode);
 
           if (exact) {
-            // найден существующий товар — показываем только popup
             addStatus.textContent = '';
             showExistingModal(exact);
           } else {
-            // нет в базе — добавляем новый
             handleAddNew(barcode, name, qty);
           }
         })
         .catch(err => {
           console.error('check barcode error:', err);
-          // даже если проверка не удалась — даём возможность добавить
           handleAddNew(barcode, name, qty, true);
         });
     });
@@ -360,7 +354,8 @@
       }
       doAdd(barcode, name, qty, (data) => {
         const newQty = data && typeof data.newQty === 'number' ? data.newQty : qty;
-        addHint.textContent = `Новый товар добавлен в базу. Сейчас на складе: ${newQty} шт.`;
+        addStatus.textContent = `Добавлено. Сейчас на складе: ${newQty}`;
+        addStatus.className = 'status ok';
       });
     }
 
@@ -374,8 +369,6 @@
             addStatus.textContent = 'Ошибка: ' + (data.message || data.error);
             addStatus.className = 'status error';
           } else {
-            addStatus.textContent = 'Успешно сохранено';
-            addStatus.className = 'status ok';
             if (typeof onDone === 'function') onDone(data);
           }
         })
@@ -386,7 +379,27 @@
         });
     }
 
-    /* ===== Модалка +1 / -1 ===== */
+    function doDelete(barcode, qty, onDone) {
+      addStatus.textContent = `Списываем ${qty}...`;
+      addStatus.className = 'status';
+
+      jsonpCall({ action: 'delete', barcode, quantity: qty })
+        .then(data => {
+          if (data.error) {
+            addStatus.textContent = 'Ошибка: ' + (data.message || data.error);
+            addStatus.className = 'status error';
+          } else {
+            if (typeof onDone === 'function') onDone(data);
+          }
+        })
+        .catch(err => {
+          console.error('delete error:', err);
+          addStatus.textContent = 'Техническая ошибка при списании';
+          addStatus.className = 'status error';
+        });
+    }
+
+    /* ===== POPUP +1 / -1 ===== */
     function showExistingModal(item) {
       modalCurrentItem = item;
       existingText.textContent =
@@ -399,84 +412,130 @@
       modalCurrentItem = null;
     }
 
-    modalCancel.addEventListener('click', () => closeExistingModal());
+    modalCancel.addEventListener('click', closeExistingModal);
+    existingModal.addEventListener('click', (e) => { if (e.target === existingModal) closeExistingModal(); });
 
-    // +1 из popup
     modalAdd1.addEventListener('click', () => {
       if (!modalCurrentItem) return;
 
       const code = modalCurrentItem.barcode;
       const name = modalCurrentItem.name;
-      const currentQty = modalCurrentItem.quantity;
+      const oldQty = Number(modalCurrentItem.quantity || 0);
 
       doAdd(code, name, 1, (data) => {
         closeExistingModal();
-        const newQty = data && typeof data.newQty === 'number'
-          ? data.newQty
-          : currentQty + 1;
+        const newQty = (data && typeof data.newQty === 'number') ? data.newQty : (oldQty + 1);
         addStatus.textContent = `Добавлено 1 шт. Новое количество: ${newQty}`;
         addStatus.className = 'status ok';
       });
     });
 
-    // -1 из popup
     modalDel1.addEventListener('click', () => {
       if (!modalCurrentItem) return;
 
       const code = modalCurrentItem.barcode;
-      const currentQty = modalCurrentItem.quantity;
+      const oldQty = Number(modalCurrentItem.quantity || 0);
 
-      addStatus.textContent = 'Списываем 1 шт...';
-      addStatus.className = 'status';
-
-      jsonpCall({ action: 'delete', barcode: code, quantity: 1 })
-        .then(data => {
-          closeExistingModal();
-          if (data.error) {
-            addStatus.textContent = 'Ошибка: ' + (data.message || data.error);
-            addStatus.className = 'status error';
-          } else {
-            const newQty = data && typeof data.newQty === 'number'
-              ? data.newQty
-              : Math.max(currentQty - 1, 0);
-            addStatus.textContent = `Списано 1 шт. Новое количество: ${newQty}`;
-            addStatus.className = 'status ok';
-          }
-        })
-        .catch(err => {
-          console.error('delete modal error:', err);
-          addStatus.textContent = 'Техническая ошибка при списании';
-          addStatus.className = 'status error';
-          closeExistingModal();
-        });
+      doDelete(code, 1, (data) => {
+        closeExistingModal();
+        const newQty = (data && typeof data.newQty === 'number') ? data.newQty : Math.max(oldQty - 1, 0);
+        addStatus.textContent = `Списано 1 шт. Новое количество: ${newQty}`;
+        addStatus.className = 'status ok';
+      });
     });
 
-    existingModal.addEventListener('click', (e) => {
-      if (e.target === existingModal) closeExistingModal();
-    });
+    /* ===== Сканер ZXing: исправление Android-камер ===== */
+    function scoreCamera_(label) {
+      const s = (label || '').toLowerCase();
+      let score = 0;
 
-    /* ===== Сканер ZXing ===== */
-    toggleScannerBtn.addEventListener('click', () => {
-      if (scannerActive) {
-        stopScanner();
+      if (s.includes('back') || s.includes('rear') || s.includes('environment')) score += 50;
+      if (s.includes('main')) score += 30;
+      if (s.includes('wide')) score += 20;
+
+      if (s.includes('ultra') || s.includes('0.5') || s.includes('0,5')) score -= 25;
+      if (s.includes('tele') || s.includes('zoom') || s.includes('2x') || s.includes('3x')) score -= 35;
+
+      if (s.includes('front') || s.includes('user')) score -= 100;
+
+      return score;
+    }
+
+    async function loadCameras_() {
+      // чтобы появились labels на Android, попробуем кратко запросить доступ
+      try {
+        const tmpStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        tmpStream.getTracks().forEach(t => t.stop());
+      } catch (_) {}
+
+      const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
+      availableCameras = devices || [];
+
+      cameraSelect.innerHTML = '';
+      availableCameras.forEach((d, i) => {
+        const opt = document.createElement('option');
+        opt.value = d.deviceId;
+        opt.textContent = d.label || `Camera ${i + 1}`;
+        cameraSelect.appendChild(opt);
+      });
+
+      const showChooser = availableCameras.length > 1;
+      cameraSelect.style.display = showChooser ? '' : 'none';
+      switchCameraBtn.style.display = showChooser ? '' : 'none';
+
+      const saved = localStorage.getItem(lastUsedDeviceIdKey);
+      if (saved && availableCameras.some(c => c.deviceId === saved)) {
+        selectedDeviceId = saved;
       } else {
-        startScanner();
+        let best = null, bestScore = -9999;
+        for (const cam of availableCameras) {
+          const sc = scoreCamera_(cam.label);
+          if (sc > bestScore) { bestScore = sc; best = cam; }
+        }
+        selectedDeviceId = best ? best.deviceId : (availableCameras[0] ? availableCameras[0].deviceId : null);
+      }
+
+      if (selectedDeviceId) cameraSelect.value = selectedDeviceId;
+    }
+
+    cameraSelect.addEventListener('change', () => {
+      selectedDeviceId = cameraSelect.value || null;
+      if (selectedDeviceId) localStorage.setItem(lastUsedDeviceIdKey, selectedDeviceId);
+      if (scannerActive) { stopScanner(); startScanner(); }
+    });
+
+    switchCameraBtn.addEventListener('click', () => {
+      if (!availableCameras.length) return;
+      const idx = availableCameras.findIndex(c => c.deviceId === selectedDeviceId);
+      const next = availableCameras[(idx + 1) % availableCameras.length];
+      if (next) {
+        selectedDeviceId = next.deviceId;
+        cameraSelect.value = selectedDeviceId;
+        localStorage.setItem(lastUsedDeviceIdKey, selectedDeviceId);
+        if (scannerActive) { stopScanner(); startScanner(); }
       }
     });
 
-    function startScanner() {
+    toggleScannerBtn.addEventListener('click', () => {
+      if (scannerActive) stopScanner();
+      else startScanner();
+    });
+
+    async function startScanner() {
       if (scannerActive) return;
 
       scannerCard.style.display = 'block';
       toggleScannerBtn.textContent = '✖ Выключить сканер';
 
-      if (!codeReader) {
-        codeReader = new ZXing.BrowserMultiFormatReader();
-      }
+      if (!codeReader) codeReader = new ZXing.BrowserMultiFormatReader();
 
-      codeReader
-        .decodeFromVideoDevice(
-          null,
+      try { await loadCameras_(); } catch (err) { console.error('loadCameras error:', err); }
+
+      const deviceIdToUse = selectedDeviceId || null;
+
+      try {
+        await codeReader.decodeFromVideoDevice(
+          deviceIdToUse,
           'video',
           (result, err) => {
             if (result) {
@@ -484,32 +543,49 @@
               stopScanner();
 
               barcodeInput.value = code;
-              addBarcode.value   = code;
-
+              addBarcode.value = code;
               addHint.textContent = '';
               addStatus.textContent = '';
 
-              searchItems(code); // быстрый поиск по полному баркоду
+              // показываем подсказки/поиск
+              searchItems(code);
             }
           }
-        )
-        .then(() => {
+        );
+        scannerActive = true;
+      } catch (err) {
+        console.error('scanner error:', err);
+
+        // fallback: если выбранная камера не стартанула — пробуем без deviceId
+        try {
+          await codeReader.decodeFromVideoDevice(
+            null,
+            'video',
+            (result) => {
+              if (result) {
+                const code = result.getText();
+                stopScanner();
+                barcodeInput.value = code;
+                addBarcode.value = code;
+                addHint.textContent = '';
+                addStatus.textContent = '';
+                searchItems(code);
+              }
+            }
+          );
           scannerActive = true;
-        })
-        .catch(err => {
-          console.error('scanner error:', err);
-          alert('Не удалось запустить камеру. Открой страницу по HTTPS и разреши доступ к камере.');
+        } catch (err2) {
+          console.error('scanner fallback error:', err2);
+          alert('Не удалось запустить камеру. Проверь HTTPS и разрешения камеры.');
           scannerCard.style.display = 'none';
           toggleScannerBtn.textContent = '📷 Включить сканер';
           scannerActive = false;
-        });
+        }
+      }
     }
 
     function stopScanner() {
-      if (!scannerActive) return;
-      if (codeReader) {
-        codeReader.reset();
-      }
+      try { if (codeReader) codeReader.reset(); } catch (_) {}
       scannerActive = false;
       scannerCard.style.display = 'none';
       toggleScannerBtn.textContent = '📷 Включить сканер';
